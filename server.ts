@@ -12,7 +12,7 @@ import fs from "fs";
 dotenv.config();
 
 // Load Firebase Config
-const firebaseConfig = JSON.parse(fs.readFileSync(path.join(process.cwd(), "firebase-applet-config.json"), "utf8"));
+import firebaseConfig from "./firebase-applet-config.json";
 
 // Initialize Firebase Admin
 let firebaseApp: App;
@@ -419,4 +419,9 @@ async function startServer() {
   });
 }
 
-startServer();
+// Do not call startServer() on Vercel
+if (!process.env.VERCEL) {
+  startServer();
+}
+
+export default app;
