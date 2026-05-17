@@ -1,0 +1,8 @@
+{
+  "name": "Remix: Yashas Art Gallery",
+  "description": "A premium ecommerce platform for handmade crafts and personalized gifts with AI-powered features and secure authentication.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

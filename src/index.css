@@ -1,0 +1,56 @@
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500;1,600;1,700&family=Montserrat:ital,wght@0,100..900;1,100..900&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-serif: "Cormorant Garamond", serif;
+  --font-sans: "Montserrat", sans-serif;
+  
+  --color-ivory: #FFFFF0;
+  --color-gold: #F7E7CE;
+  --color-gold-dark: #D4AF37;
+  --color-charcoal: #333333;
+
+  --color-dark-bg: #1A1A1A;
+  --color-dark-surface: #262626;
+  --color-dark-text: #E5E5E5;
+  --color-dark-gold: #BC9D2D;
+}
+
+@layer base {
+  body {
+    @apply bg-ivory text-charcoal font-sans transition-colors duration-300 antialiased;
+  }
+
+  .dark body {
+    @apply bg-dark-bg text-dark-text;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-serif text-charcoal dark:text-white font-semibold;
+  }
+}
+
+.glass {
+  @apply bg-white/60 backdrop-blur-md border border-gold/20 shadow-xl transition-all duration-300;
+}
+
+.dark .glass {
+  @apply bg-black/40 border-white/10;
+}
+
+.btn-gold {
+  @apply bg-gold-dark hover:bg-charcoal text-white font-medium py-2 px-6 rounded-full transition-all duration-300 shadow-md hover:shadow-lg active:scale-95;
+}
+
+.dark .btn-gold {
+  @apply bg-dark-gold hover:bg-gold-dark text-black;
+}
+
+.input-field {
+  @apply w-full px-4 py-2 bg-white/80 border border-gold/40 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold/50 transition-all text-charcoal placeholder:text-charcoal/40;
+}
+
+.dark .input-field {
+  @apply bg-white/5 border-white/10 text-white placeholder:text-white/20;
+}
+

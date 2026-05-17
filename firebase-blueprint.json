@@ -1,0 +1,61 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile information",
+      "type": "object",
+      "properties": {
+        "full_name": { "type": "string", "description": "Full name of the user" },
+        "age": { "type": "integer", "description": "Age of the user" },
+        "location": { "type": "string", "description": "User's location" },
+        "mobile_number": { "type": "string", "description": "User's mobile number" },
+        "email": { "type": "string", "format": "email", "description": "User's email address" },
+        "password": { "type": "string", "description": "Hashed password" },
+        "role": { "type": "string", "enum": ["user", "admin"], "description": "User's role" },
+        "is_mobile_verified": { "type": "boolean", "description": "Whether the mobile number is verified" },
+        "created_at": { "type": "string", "format": "date-time", "description": "Account creation timestamp" }
+      },
+      "required": ["full_name", "mobile_number", "email", "password", "role", "created_at"]
+    },
+    "OtpVerification": {
+      "title": "OTP Verification",
+      "description": "Verification codes for mobile and password reset",
+      "type": "object",
+      "properties": {
+        "mobile_number": { "type": "string" },
+        "otp": { "type": "string" },
+        "expiry_time": { "type": "string", "format": "date-time" },
+        "is_verified": { "type": "boolean" },
+        "created_at": { "type": "string", "format": "date-time" },
+        "timestamp": { "type": "integer" }
+      },
+      "required": ["mobile_number", "otp", "expiry_time", "is_verified", "created_at"]
+    },
+    "LoginHistory": {
+      "title": "Login History",
+      "description": "Logs of user login attempts",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "method": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "device": { "type": "string" }
+      },
+      "required": ["userId", "method", "timestamp"]
+    }
+  },
+  "firestore": {
+    "users": {
+      "schema": "User",
+      "description": "Global collection of users"
+    },
+    "otp_verifications": {
+      "schema": "OtpVerification",
+      "description": "Collection of OTP codes"
+    },
+    "login_history": {
+      "schema": "LoginHistory",
+      "description": "Collection of login history logs"
+    }
+  }
+}
