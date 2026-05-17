@@ -5,14 +5,17 @@ import dotenv from "dotenv";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import { initializeApp, getApps, App, cert } from "firebase-admin/app";
-import { getFirestore, Firestore } from "firebase-admin/firestore";
-import { createServer as createViteServer } from "vite";
+import { getFirestore } from "firebase-admin/firestore";
 import fs from "fs";
 
 dotenv.config();
 
-// Load Firebase Config
-import firebaseConfig from "./firebase-applet-config.json";
+// Firebase Config (hardcoded from firebase-applet-config.json)
+const firebaseConfig = {
+  projectId: "deft-racer-490609-c1",
+  storageBucket: "deft-racer-490609-c1.firebasestorage.app",
+  firestoreDatabaseId: "ai-studio-f96ec1c7-2a9b-41ee-adf7-3aeac8a8f8a0"
+};
 
 // Initialize Firebase Admin
 let firebaseApp: App;
@@ -397,22 +400,15 @@ app.put("/api/user/profile", authenticateToken, async (req: any, res) => {
   }
 });
 
-// --- vite middleware for production/dev ---
+// --- Server startup (only for local dev, not Vercel) ---
 
 async function startServer() {
-  if (process.env.NODE_ENV !== "production") {
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: "spa",
-    });
-    app.use(vite.middlewares);
-  } else {
-    const distPath = path.join(process.cwd(), "dist");
-    app.use(express.static(distPath));
-    app.get("*", (req, res) => {
-      res.sendFile(path.join(distPath, "index.html"));
-    });
-  }
+  const { createServer: createViteServer } = await import("vite");
+  const vite = await createViteServer({
+    server: { middlewareMode: true },
+    appType: "spa",
+  });
+  app.use(vite.middlewares);
 
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on http://0.0.0.0:${PORT}`);
