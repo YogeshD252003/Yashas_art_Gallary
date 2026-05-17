@@ -57,50 +57,84 @@ const Navbar = () => {
   const { theme, toggleTheme } = useTheme();
   const { wishlist } = useWishlist();
   const navigate = useNavigate();
+  const [menuOpen, setMenuOpen] = React.useState(false);
 
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 bg-ivory/80 dark:bg-dark-bg/80 backdrop-blur-md border-b border-gold/20 dark:border-white/10 px-6 py-4 flex justify-between items-center transition-colors duration-300">
-      <Link to="/" className="text-2xl font-serif font-bold text-charcoal dark:text-white tracking-wider">
-        YASHAS <span className="text-gold-dark font-serif">ART GALLERY</span>
-      </Link>
-      
-      <div className="flex items-center gap-6">
-        <Link to="/" className="text-charcoal dark:text-white/80 font-medium hover:text-gold-dark transition-colors font-bold">Home</Link>
-        
-        <Link to="/wishlist" className="relative text-charcoal dark:text-white/80 hover:text-gold-dark transition-colors">
-          <Heart size={22} className={wishlist.length > 0 ? "fill-gold-dark text-gold-dark" : ""} />
-          {wishlist.length > 0 && (
-            <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] w-4 h-4 rounded-full flex items-center justify-center font-bold">
-              {wishlist.length}
-            </span>
-          )}
+    <nav className="fixed top-0 left-0 right-0 z-50 bg-ivory/90 dark:bg-dark-bg/90 backdrop-blur-md border-b border-gold/20 dark:border-white/10 transition-colors duration-300">
+      <div className="px-4 sm:px-6 py-3 flex justify-between items-center max-w-7xl mx-auto">
+        {/* Logo */}
+        <Link to="/" className="text-lg sm:text-2xl font-serif font-bold text-charcoal dark:text-white tracking-wider" onClick={() => setMenuOpen(false)}>
+          YASHAS <span className="text-gold-dark">ART GALLERY</span>
         </Link>
 
-        <button 
-          onClick={toggleTheme}
-          className="w-10 h-10 rounded-xl bg-gold/10 dark:bg-white/5 flex items-center justify-center text-gold-dark dark:text-white hover:bg-gold/20 transition-all font-bold"
-          aria-label="Toggle theme"
-        >
-          {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
-        </button>
+        {/* Desktop Nav */}
+        <div className="hidden md:flex items-center gap-6">
+          <Link to="/" className="text-charcoal dark:text-white/80 font-medium hover:text-gold-dark transition-colors">Home</Link>
+          <Link to="/wishlist" className="relative text-charcoal dark:text-white/80 hover:text-gold-dark transition-colors">
+            <Heart size={22} className={wishlist.length > 0 ? "fill-gold-dark text-gold-dark" : ""} />
+            {wishlist.length > 0 && (
+              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] w-4 h-4 rounded-full flex items-center justify-center font-bold">{wishlist.length}</span>
+            )}
+          </Link>
+          <button onClick={toggleTheme} className="w-9 h-9 rounded-xl bg-gold/10 dark:bg-white/5 flex items-center justify-center text-gold-dark dark:text-white hover:bg-gold/20 transition-all" aria-label="Toggle theme">
+            {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
+          </button>
+          {user ? (
+            <div className="flex items-center gap-3">
+              <Link to="/dashboard" className="flex items-center gap-2 text-charcoal dark:text-white hover:text-gold-dark transition-colors">
+                <UserIcon size={20} />
+                <span className="font-medium">{user.full_name.split(' ')[0]}</span>
+              </Link>
+              <button onClick={() => { logout(); navigate('/login'); }} className="text-charcoal/60 dark:text-white/40 hover:text-red-500 transition-colors"><LogOut size={20} /></button>
+            </div>
+          ) : (
+            <div className="flex gap-3">
+              <Link to="/login" className="text-charcoal dark:text-white font-medium hover:text-gold-dark transition-colors">Login</Link>
+              <Link to="/register" className="btn-gold py-1.5 px-4 text-sm">Join Now</Link>
+            </div>
+          )}
+        </div>
 
-        {user ? (
-          <div className="flex items-center gap-4">
-             <Link to="/dashboard" className="flex items-center gap-2 text-charcoal dark:text-white hover:text-gold-dark transition-colors text-charcoal">
-              <UserIcon size={20} />
-              <span className="hidden md:block font-medium">{user.full_name.split(' ')[0]}</span>
-            </Link>
-            <button onClick={() => { logout(); navigate('/login'); }} className="text-charcoal/60 dark:text-white/40 hover:text-red-500 transition-colors">
-              <LogOut size={20} />
-            </button>
-          </div>
-        ) : (
-          <div className="flex gap-4">
-            <Link to="/login" className="text-charcoal dark:text-white font-medium hover:text-gold-dark transition-colors">Login</Link>
-            <Link to="/register" className="btn-gold py-1.5 px-4 text-sm">Join Now</Link>
-          </div>
-        )}
+        {/* Mobile: icons + hamburger */}
+        <div className="flex md:hidden items-center gap-3">
+          <Link to="/wishlist" className="relative text-charcoal dark:text-white/80">
+            <Heart size={20} className={wishlist.length > 0 ? "fill-gold-dark text-gold-dark" : ""} />
+            {wishlist.length > 0 && (
+              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[9px] w-4 h-4 rounded-full flex items-center justify-center font-bold">{wishlist.length}</span>
+            )}
+          </Link>
+          <button onClick={toggleTheme} className="w-8 h-8 rounded-lg bg-gold/10 flex items-center justify-center text-gold-dark" aria-label="Toggle theme">
+            {theme === 'light' ? <Moon size={16} /> : <Sun size={16} />}
+          </button>
+          <button onClick={() => setMenuOpen(!menuOpen)} className="w-8 h-8 flex flex-col justify-center items-center gap-1.5" aria-label="Menu">
+            <span className={`block w-5 h-0.5 bg-charcoal dark:bg-white transition-all ${menuOpen ? 'rotate-45 translate-y-2' : ''}`} />
+            <span className={`block w-5 h-0.5 bg-charcoal dark:bg-white transition-all ${menuOpen ? 'opacity-0' : ''}`} />
+            <span className={`block w-5 h-0.5 bg-charcoal dark:bg-white transition-all ${menuOpen ? '-rotate-45 -translate-y-2' : ''}`} />
+          </button>
+        </div>
       </div>
+
+      {/* Mobile Dropdown Menu */}
+      {menuOpen && (
+        <div className="md:hidden bg-ivory/95 dark:bg-dark-bg/95 backdrop-blur-md border-t border-gold/20 dark:border-white/10 px-6 py-4 flex flex-col gap-4">
+          <Link to="/" onClick={() => setMenuOpen(false)} className="text-charcoal dark:text-white font-medium hover:text-gold-dark transition-colors py-2 border-b border-gold/10">Home</Link>
+          {user ? (
+            <>
+              <Link to="/dashboard" onClick={() => setMenuOpen(false)} className="flex items-center gap-2 text-charcoal dark:text-white font-medium hover:text-gold-dark py-2 border-b border-gold/10">
+                <UserIcon size={18} /> {user.full_name}
+              </Link>
+              <button onClick={() => { logout(); navigate('/login'); setMenuOpen(false); }} className="text-red-500 font-medium text-left py-2 flex items-center gap-2">
+                <LogOut size={18} /> Logout
+              </button>
+            </>
+          ) : (
+            <div className="flex flex-col gap-3 pt-1">
+              <Link to="/login" onClick={() => setMenuOpen(false)} className="text-charcoal dark:text-white font-medium hover:text-gold-dark transition-colors py-2">Login</Link>
+              <Link to="/register" onClick={() => setMenuOpen(false)} className="btn-gold text-center py-2.5">Join Now</Link>
+            </div>
+          )}
+        </div>
+      )}
     </nav>
   );
 };
@@ -112,57 +146,57 @@ const Home = () => {
   const { addToWishlist, removeFromWishlist, isInWishlist } = useWishlist();
   
   return (
-    <div className="pt-32 px-6 min-h-screen pb-20">
+    <div className="pt-24 sm:pt-32 px-4 sm:px-6 min-h-screen pb-20">
       <motion.div 
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         className="max-w-6xl mx-auto text-center"
       >
-        <h1 className="text-5xl md:text-7xl mb-6 dark:text-white text-charcoal font-bold">Experience Art with Intelligence</h1>
-        <p className="text-xl text-charcoal dark:text-white/60 mb-12 font-sans max-w-2xl mx-auto font-medium">
+        <h1 className="text-3xl sm:text-5xl md:text-7xl mb-4 sm:mb-6 dark:text-white text-charcoal font-bold leading-tight">Experience Art with Intelligence</h1>
+        <p className="text-base sm:text-xl text-charcoal dark:text-white/60 mb-8 sm:mb-12 font-sans max-w-2xl mx-auto font-medium px-2">
           Handcrafted treasures, personalized for your most precious moments. 
           Step into a world where every gift tells a story.
         </p>
         
         {user ? (
           <div className="flex justify-center gap-4">
-            <Link to="/dashboard" className="btn-gold">Go to Your Gallery Dashboard</Link>
+            <Link to="/dashboard" className="btn-gold text-sm sm:text-base">Go to Your Gallery Dashboard</Link>
           </div>
         ) : (
           <div className="flex justify-center gap-4">
-            <Link to="/register" className="btn-gold">Create Exclusive Account</Link>
+            <Link to="/register" className="btn-gold text-sm sm:text-base">Create Exclusive Account</Link>
           </div>
         )}
 
         {/* Featured Artworks */}
-        <div className="mt-32 text-left">
-          <h2 className="text-4xl italic mb-12 flex items-center gap-4">
-            <span className="w-12 h-[1px] bg-gold-dark block"></span>
+        <div className="mt-16 sm:mt-32 text-left">
+          <h2 className="text-2xl sm:text-4xl italic mb-8 sm:mb-12 flex items-center gap-4">
+            <span className="w-8 sm:w-12 h-[1px] bg-gold-dark block"></span>
             Featured Artworks
           </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-8">
             {FEATURED_ARTWORKS.map((artwork) => (
               <motion.div 
                 key={artwork.id}
                 whileHover={{ y: -10 }}
-                className="glass group rounded-[2rem] overflow-hidden"
+                className="glass group rounded-[1.5rem] sm:rounded-[2rem] overflow-hidden"
               >
                 <div className="relative aspect-[4/5] overflow-hidden">
                   <img src={artwork.image} alt={artwork.title} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex items-end p-6">
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex items-end p-4 sm:p-6">
                     <div>
                       <span className="text-[10px] text-white/70 uppercase tracking-widest font-bold">{artwork.category}</span>
-                      <h4 className="text-xl text-white font-serif italic">{artwork.title}</h4>
+                      <h4 className="text-lg sm:text-xl text-white font-serif italic">{artwork.title}</h4>
                     </div>
                   </div>
                   <button 
                     onClick={() => isInWishlist(artwork.id) ? removeFromWishlist(artwork.id) : addToWishlist(artwork)}
-                    className={`absolute top-4 right-4 w-10 h-10 rounded-full flex items-center justify-center backdrop-blur-md transition-all ${isInWishlist(artwork.id) ? 'bg-red-500 text-white' : 'bg-white/20 text-white hover:bg-white/40'}`}
+                    className={`absolute top-3 right-3 w-9 h-9 rounded-full flex items-center justify-center backdrop-blur-md transition-all ${isInWishlist(artwork.id) ? 'bg-red-500 text-white' : 'bg-white/20 text-white hover:bg-white/40'}`}
                   >
-                    <Heart size={20} className={isInWishlist(artwork.id) ? "fill-current" : ""} />
+                    <Heart size={18} className={isInWishlist(artwork.id) ? "fill-current" : ""} />
                   </button>
                 </div>
-                <div className="p-6 flex justify-between items-center">
+                <div className="p-4 sm:p-6 flex justify-between items-center">
                   <div>
                     <p className="text-xs text-charcoal/40 dark:text-white/30 lowercase italic">Artist</p>
                     <p className="font-bold text-sm dark:text-white/80">{artwork.artist}</p>
@@ -177,7 +211,7 @@ const Home = () => {
           </div>
         </div>
 
-        <div className="mt-32 grid grid-cols-1 md:grid-cols-3 gap-8">
+        <div className="mt-12 sm:mt-32 grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-8">
           {[
             { title: "Personalized", icon: <ShoppingBag />, desc: "Custom photo frames & crafts" },
             { title: "Home Decor", icon: <Heart />, desc: "Artistic ornaments & lamps" },
@@ -186,7 +220,7 @@ const Home = () => {
             <motion.div 
               key={i}
               whileHover={{ y: -5 }}
-              className="glass p-8 rounded-3xl"
+              className="glass p-6 sm:p-8 rounded-2xl sm:rounded-3xl"
             >
               <div className="w-12 h-12 bg-gold/30 rounded-2xl flex items-center justify-center mb-4 text-gold-dark mx-auto">
                 {item.icon}
@@ -289,12 +323,12 @@ const LoginPage = () => {
   };
 
   return (
-    <div className="pt-32 px-6 flex justify-center">
+    <div className="pt-24 sm:pt-32 px-4 sm:px-6 flex justify-center pb-16">
       <div className="w-full max-w-md">
         <motion.div 
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="glass p-8 rounded-[2.5rem]"
+          className="glass p-6 sm:p-8 rounded-[1.5rem] sm:rounded-[2.5rem]"
         >
           <div className="text-center mb-8">
             <h2 className="text-3xl mb-2 italic dark:text-white font-bold text-charcoal">Welcome Back</h2>
@@ -475,19 +509,19 @@ const RegisterPage = () => {
   };
 
   return (
-    <div className="pt-32 px-6 flex justify-center pb-20">
+    <div className="pt-24 sm:pt-32 px-4 sm:px-6 flex justify-center pb-20">
       <div className="w-full max-w-xl">
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="glass p-10 rounded-[2.5rem]"
+          className="glass p-6 sm:p-10 rounded-[1.5rem] sm:rounded-[2.5rem]"
         >
-          <h2 className="text-4xl mb-2 italic dark:text-white font-bold text-charcoal">Join the Gallery</h2>
-          <p className="text-charcoal dark:text-white/40 mb-8 font-sans font-medium">Create an account to unlock personalized art experiences</p>
+          <h2 className="text-2xl sm:text-4xl mb-2 italic dark:text-white font-bold text-charcoal">Join the Gallery</h2>
+          <p className="text-charcoal dark:text-white/40 mb-6 sm:mb-8 font-sans font-medium text-sm sm:text-base">Create an account to unlock personalized art experiences</p>
 
-          {error && <div className="mb-6 p-3 bg-red-50 text-red-500 rounded-lg text-sm">{error}</div>}
+          {error && <div className="mb-4 p-3 bg-red-50 text-red-500 rounded-lg text-sm">{error}</div>}
 
-          <form onSubmit={handleRegister} className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <form onSubmit={handleRegister} className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
             <div className="space-y-2">
               <label htmlFor="full_name" className="text-sm font-medium">Full Name</label>
               <input 
