@@ -421,7 +421,7 @@ const LoginPage = () => {
                       type="button"
                       onClick={handleSendOtp}
                       disabled={loading || !mobileNumber}
-                      className="px-4 bg-gold/20 hover:bg-gold/40 text-gold-dark text-sm font-medium rounded-lg transition-colors whitespace-nowrap"
+                      className="px-5 py-[0.625rem] border-2 border-transparent bg-gold/20 hover:bg-gold/40 dark:bg-white/10 dark:hover:bg-white/20 text-gold-dark dark:text-gold text-sm font-medium rounded-lg transition-all whitespace-nowrap flex items-center justify-center"
                     >
                       {loading ? "..." : "Send OTP"}
                     </button>
