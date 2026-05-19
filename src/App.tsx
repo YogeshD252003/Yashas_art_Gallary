@@ -85,7 +85,7 @@ const Navbar = () => {
                 <UserIcon size={20} />
                 <span className="font-medium">{user.full_name.split(' ')[0]}</span>
               </Link>
-              <button onClick={() => { logout(); navigate('/login'); }} className="text-charcoal/60 dark:text-white/40 hover:text-red-500 transition-colors"><LogOut size={20} /></button>
+              <button onClick={() => { logout(); navigate('/login'); }} className="text-charcoal/80 dark:text-white/60 hover:text-red-500 transition-colors"><LogOut size={20} /></button>
             </div>
           ) : (
             <div className="flex gap-3">
@@ -153,7 +153,7 @@ const Home = () => {
         className="max-w-6xl mx-auto text-center"
       >
         <h1 className="text-3xl sm:text-5xl md:text-7xl mb-4 sm:mb-6 dark:text-white text-charcoal font-bold leading-tight">Experience Art with Intelligence</h1>
-        <p className="text-base sm:text-xl text-charcoal dark:text-white/60 mb-8 sm:mb-12 font-sans max-w-2xl mx-auto font-medium px-2">
+        <p className="text-base sm:text-xl text-charcoal dark:text-white/80 mb-8 sm:mb-12 font-sans max-w-2xl mx-auto font-medium px-2">
           Handcrafted treasures, personalized for your most precious moments. 
           Step into a world where every gift tells a story.
         </p>
@@ -198,12 +198,12 @@ const Home = () => {
                 </div>
                 <div className="p-4 sm:p-6 flex justify-between items-center">
                   <div>
-                    <p className="text-xs text-charcoal/40 dark:text-white/30 lowercase italic">Artist</p>
+                    <p className="text-xs text-charcoal/70 dark:text-white/60 lowercase italic">Artist</p>
                     <p className="font-bold text-sm dark:text-white/80">{artwork.artist}</p>
                   </div>
                   <div className="text-right">
                     <p className="text-sm font-serif font-bold text-gold-dark">{artwork.price}</p>
-                    <button className="text-[10px] uppercase font-bold tracking-widest text-charcoal/40 dark:text-white/20 hover:text-gold-dark transition-colors">Details</button>
+                    <button className="text-[10px] uppercase font-bold tracking-widest text-charcoal/65 dark:text-white/50 hover:text-gold-dark transition-colors">Details</button>
                   </div>
                 </div>
               </motion.div>
@@ -226,7 +226,7 @@ const Home = () => {
                 {item.icon}
               </div>
               <h3 className="text-xl mb-2 dark:text-white font-bold text-charcoal">{item.title}</h3>
-              <p className="text-sm text-charcoal/80 dark:text-white/40 font-medium">{item.desc}</p>
+              <p className="text-sm text-charcoal/85 dark:text-white/65 font-medium">{item.desc}</p>
             </motion.div>
           ))}
         </div>
@@ -332,19 +332,19 @@ const LoginPage = () => {
         >
           <div className="text-center mb-8">
             <h2 className="text-3xl mb-2 italic dark:text-white font-bold text-charcoal">Welcome Back</h2>
-            <p className="text-charcoal dark:text-white/40 font-medium">Choose your preferred login method</p>
+            <p className="text-charcoal dark:text-white/70 font-medium">Choose your preferred login method</p>
           </div>
 
           <div className="flex mb-8 p-1 bg-gold/10 dark:bg-white/5 rounded-xl">
             <button 
               onClick={() => { setActiveTab('email'); setIsOtpSent(false); }}
-              className={`flex-1 py-2 rounded-lg font-medium transition-all ${activeTab === 'email' ? 'bg-white dark:bg-white/10 shadow-sm text-charcoal dark:text-white' : 'text-charcoal/50 dark:text-white/30'}`}
+              className={`flex-1 py-2 rounded-lg font-medium transition-all ${activeTab === 'email' ? 'bg-white dark:bg-white/10 shadow-sm text-charcoal dark:text-white' : 'text-charcoal/70 dark:text-white/55'}`}
             >
               Email
             </button>
             <button 
               onClick={() => { setActiveTab('mobile'); }}
-              className={`flex-1 py-2 rounded-lg font-medium transition-all ${activeTab === 'mobile' ? 'bg-white dark:bg-white/10 shadow-sm text-charcoal dark:text-white' : 'text-charcoal/50 dark:text-white/30'}`}
+              className={`flex-1 py-2 rounded-lg font-medium transition-all ${activeTab === 'mobile' ? 'bg-white dark:bg-white/10 shadow-sm text-charcoal dark:text-white' : 'text-charcoal/70 dark:text-white/55'}`}
             >
               Mobile
             </button>
@@ -382,7 +382,7 @@ const LoginPage = () => {
                   <button 
                     type="button" 
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-charcoal/40"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-charcoal/65 dark:text-white/55"
                   >
                     {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                   </button>
@@ -396,7 +396,7 @@ const LoginPage = () => {
                   onChange={e => setRememberMe(e.target.checked)}
                   className="rounded border-gold/30 text-gold-dark focus:ring-gold"
                 />
-                <label htmlFor="remember" className="text-sm text-charcoal/60">Remember me for 30 days</label>
+                <label htmlFor="remember" className="text-sm text-charcoal/80 dark:text-white/75">Remember me for 30 days</label>
               </div>
               <button disabled={loading} className="w-full btn-gold py-3 mt-4 flex justify-center items-center gap-2">
                 {loading ? <Loader2 className="animate-spin" size={20} /> : "Login to Gallery"}
@@ -450,7 +450,7 @@ const LoginPage = () => {
                   <button 
                     type="button" 
                     onClick={() => setIsOtpSent(false)}
-                    className="w-full text-center text-xs text-charcoal/40 hover:text-charcoal transition-colors underline"
+                    className="w-full text-center text-xs text-charcoal/65 dark:text-white/55 hover:text-charcoal dark:hover:text-white transition-colors underline"
                   >
                     Change mobile number
                   </button>
@@ -459,7 +459,7 @@ const LoginPage = () => {
             </form>
           )}
 
-          <p className="mt-8 text-center text-charcoal font-medium">
+          <p className="mt-8 text-center text-charcoal dark:text-white/80 font-medium">
             Don't have an exclusive account? <Link to="/register" className="text-gold-dark font-bold hover:underline">Register now</Link>
           </p>
         </motion.div>
@@ -517,7 +517,7 @@ const RegisterPage = () => {
           className="glass p-6 sm:p-10 rounded-[1.5rem] sm:rounded-[2.5rem]"
         >
           <h2 className="text-2xl sm:text-4xl mb-2 italic dark:text-white font-bold text-charcoal">Join the Gallery</h2>
-          <p className="text-charcoal dark:text-white/40 mb-6 sm:mb-8 font-sans font-medium text-sm sm:text-base">Create an account to unlock personalized art experiences</p>
+          <p className="text-charcoal/80 dark:text-white/65 mb-6 sm:mb-8 font-sans font-medium text-sm sm:text-base">Create an account to unlock personalized art experiences</p>
 
           {error && <div className="mb-4 p-3 bg-red-50 text-red-500 rounded-lg text-sm">{error}</div>}
 
@@ -611,7 +611,7 @@ const RegisterPage = () => {
           </form>
 
 
-          <p className="mt-8 text-center text-charcoal/60">
+          <p className="mt-8 text-center text-charcoal/80 dark:text-white/70">
             Already have an account? <Link to="/login" className="text-gold-dark font-medium hover:underline">Login here</Link>
           </p>
         </motion.div>
@@ -630,7 +630,7 @@ const WishlistPage = () => {
                 <header className="mb-12 flex justify-between items-end">
                     <div>
                         <h2 className="text-5xl italic mb-2 dark:text-white font-bold text-charcoal">Your Wishlist</h2>
-                        <p className="text-charcoal/60 dark:text-white/40 font-medium">Items you've fallen in love with</p>
+                        <p className="text-charcoal/80 dark:text-white/65 font-medium">Items you've fallen in love with</p>
                     </div>
                     <Link to="/" className="text-gold-dark font-bold hover:underline">Explore More Art</Link>
                 </header>
@@ -665,12 +665,12 @@ const WishlistPage = () => {
                                     </div>
                                     <div className="p-6 flex justify-between items-center">
                                         <div>
-                                            <p className="text-xs text-charcoal/40 dark:text-white/30 lowercase italic">Artist</p>
+                                            <p className="text-xs text-charcoal/75 dark:text-white/60 lowercase italic">Artist</p>
                                             <p className="font-bold text-sm dark:text-white/80">{artwork.artist}</p>
                                         </div>
                                         <div className="text-right">
                                             <p className="text-sm font-serif font-bold text-gold-dark">{artwork.price}</p>
-                                            <button className="text-[10px] uppercase font-bold tracking-widest text-charcoal/40 dark:text-white/20 hover:text-gold-dark transition-colors">Details</button>
+                                            <button className="text-[10px] uppercase font-bold tracking-widest text-charcoal/65 dark:text-white/50 hover:text-gold-dark transition-colors">Details</button>
                                         </div>
                                     </div>
                                 </motion.div>
@@ -683,7 +683,7 @@ const WishlistPage = () => {
                             <Heart size={40} className="opacity-20" />
                         </div>
                         <h3 className="text-2xl font-serif italic mb-4 dark:text-white">Your wishlist is currently empty</h3>
-                        <p className="text-charcoal/60 dark:text-white/40 mb-8 max-w-sm mx-auto">Discover unique art pieces and handcrafted treasures to fill your collection.</p>
+                        <p className="text-charcoal/80 dark:text-white/65 mb-8 max-w-sm mx-auto">Discover unique art pieces and handcrafted treasures to fill your collection.</p>
                         <Link to="/" className="btn-gold py-3 px-10">Start Discovering</Link>
                     </div>
                 )}
@@ -785,7 +785,7 @@ const DashboardPage = () => {
                                 <UserIcon size={48} />
                             </div>
                             <h2 className="text-3xl italic mb-1 dark:text-white font-bold text-charcoal">{user.full_name}</h2>
-                            <p className="text-charcoal dark:text-white/40 text-sm mb-6 font-medium">{user.email}</p>
+                            <p className="text-charcoal/80 dark:text-white/65 text-sm mb-6 font-medium">{user.email}</p>
                             <span className="px-4 py-1.5 bg-gold/20 dark:bg-gold-dark/20 text-gold-dark rounded-full text-xs font-bold uppercase tracking-widest border border-gold/30">
                                 Platinum Member
                             </span>
@@ -801,21 +801,21 @@ const DashboardPage = () => {
                             <div className="flex items-center gap-4 p-4 bg-white/40 dark:bg-white/5 rounded-2xl border border-gold/10">
                                 <div className="text-gold-dark"><Phone size={18} /></div>
                                 <div>
-                                    <p className="text-[10px] text-charcoal/50 dark:text-white/20 uppercase font-bold">Mobile</p>
+                                    <p className="text-[10px] text-charcoal/77 dark:text-white/50 uppercase font-bold">Mobile</p>
                                     <p className="font-bold text-sm dark:text-white/80 text-charcoal">{user.mobile_number}</p>
                                 </div>
                             </div>
                             <div className="flex items-center gap-4 p-4 bg-white/40 dark:bg-white/5 rounded-2xl border border-gold/10">
                                 <div className="text-gold-dark"><MapPin size={18} /></div>
                                 <div>
-                                    <p className="text-[10px] text-charcoal/50 dark:text-white/20 uppercase font-bold">Location</p>
+                                    <p className="text-[10px] text-charcoal/77 dark:text-white/50 uppercase font-bold">Location</p>
                                     <p className="font-bold text-sm dark:text-white/80 text-charcoal">{user.location || "Earth"}</p>
                                 </div>
                             </div>
                             <div className="flex items-center gap-4 p-4 bg-white/40 dark:bg-white/5 rounded-2xl border border-gold/10">
                                 <div className="text-gold-dark"><Clock size={18} /></div>
                                 <div>
-                                    <p className="text-[10px] text-charcoal/50 dark:text-white/20 uppercase font-bold">Age</p>
+                                    <p className="text-[10px] text-charcoal/77 dark:text-white/50 uppercase font-bold">Age</p>
                                     <p className="font-bold text-sm dark:text-white/80 text-charcoal">{user.age || "Unknown"}</p>
                                 </div>
                             </div>
@@ -832,7 +832,7 @@ const DashboardPage = () => {
                         </h3>
                         <div className="flex flex-wrap gap-2">
                             {["Custom Frames", "Abstract Art", "Resin Crafts", "Antique Style"].map(pref => (
-                                <span key={pref} className="px-3 py-1 bg-white/50 dark:bg-white/10 border border-gold/10 rounded-lg text-xs text-charcoal/70 dark:text-white/50">
+                                <span key={pref} className="px-3 py-1 bg-white/50 dark:bg-white/10 border border-gold/15 rounded-lg text-xs text-charcoal/80 dark:text-white/70">
                                     {pref}
                                 </span>
                             ))}
@@ -844,12 +844,12 @@ const DashboardPage = () => {
                 <div className="lg:col-span-2 space-y-8">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-charcoal font-medium">
                         <div className="glass p-8 rounded-[2.5rem] bg-gradient-to-br from-white/40 to-gold/10 dark:from-white/5 dark:to-white/10">
-                            <h4 className="text-charcoal/60 dark:text-white/30 text-xs font-bold uppercase mb-2">My Art Collection</h4>
-                            <p className="text-4xl font-serif dark:text-white font-bold text-charcoal">12 <span className="text-sm text-charcoal/60 dark:text-white/40 lowercase italic">Items</span></p>
+                            <h4 className="text-charcoal/80 dark:text-white/60 text-xs font-bold uppercase mb-2">My Art Collection</h4>
+                            <p className="text-4xl font-serif dark:text-white font-bold text-charcoal">12 <span className="text-sm text-charcoal/80 dark:text-white/60 lowercase italic">Items</span></p>
                         </div>
                         <Link to="/wishlist" className="glass p-8 rounded-[2.5rem] bg-gradient-to-br from-white/40 to-gold/10 dark:from-white/5 dark:to-white/10 block hover:scale-[1.02] transition-transform">
-                            <h4 className="text-charcoal/60 dark:text-white/30 text-xs font-bold uppercase mb-2">My Wishlist</h4>
-                            <p className="text-4xl font-serif dark:text-white font-bold text-charcoal">{wishlist.length.toString().padStart(2, '0')} <span className="text-sm text-charcoal/60 dark:text-white/40 lowercase italic">Saved</span></p>
+                            <h4 className="text-charcoal/80 dark:text-white/60 text-xs font-bold uppercase mb-2">My Wishlist</h4>
+                            <p className="text-4xl font-serif dark:text-white font-bold text-charcoal">{wishlist.length.toString().padStart(2, '0')} <span className="text-sm text-charcoal/80 dark:text-white/60 lowercase italic">Saved</span></p>
                         </Link>
                     </div>
 
@@ -877,7 +877,7 @@ const DashboardPage = () => {
                     <div className="glass p-8 rounded-[2.5rem]">
                         <div className="flex justify-between items-center mb-6">
                             <h3 className="text-2xl italic dark:text-white font-bold">Active Orders</h3>
-                            <span className="text-xs text-charcoal/40 dark:text-white/30 uppercase font-bold tracking-widest text-[10px]">Processing</span>
+                            <span className="text-xs text-charcoal/65 dark:text-white/55 uppercase font-bold tracking-widest text-[10px]">Processing</span>
                         </div>
                         <div className="space-y-4">
                             {[
@@ -891,7 +891,7 @@ const DashboardPage = () => {
                                         </div>
                                         <div>
                                             <p className="font-bold text-sm dark:text-white/90">{order.item}</p>
-                                            <p className="text-[10px] text-charcoal/40 dark:text-white/30 truncate max-w-[100px]">{order.id} • {order.date}</p>
+                                            <p className="text-[10px] text-charcoal/65 dark:text-white/55 truncate max-w-[100px]">{order.id} • {order.date}</p>
                                         </div>
                                     </div>
                                     <span className={`px-2 py-1 rounded-full text-[9px] font-bold uppercase tracking-wider ${order.status === 'Shipped' ? 'bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-400' : 'bg-gold/10 text-gold-dark'}`}>
@@ -915,13 +915,13 @@ const DashboardPage = () => {
                                         </div>
                                         <div>
                                             <p className="font-medium text-sm dark:text-white/80">{login.method}</p>
-                                            <p className="text-xs text-charcoal/40 dark:text-white/30">{new Date(login.timestamp).toLocaleString()}</p>
+                                            <p className="text-xs text-charcoal/65 dark:text-white/55">{new Date(login.timestamp).toLocaleString()}</p>
                                         </div>
                                     </div>
                                     <span className="text-[10px] bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400 px-2 py-0.5 rounded uppercase font-bold">Success</span>
                                 </div>
                             )) : (
-                                <p className="text-charcoal/40 dark:text-white/30 text-sm italic">No recent activity found.</p>
+                                <p className="text-charcoal/65 dark:text-white/55 text-sm italic">No recent activity found.</p>
                             )}
                         </div>
                     </div>
@@ -989,7 +989,7 @@ const DashboardPage = () => {
                                     <button 
                                         type="button"
                                         onClick={() => setIsEditModalOpen(false)}
-                                        className="flex-1 py-3 bg-gray-100 dark:bg-white/5 rounded-2xl text-charcoal dark:text-white/60 font-bold transition-all hover:bg-gray-200 dark:hover:bg-white/10"
+                                        className="flex-1 py-3 bg-gray-100 dark:bg-white/5 rounded-2xl text-charcoal dark:text-white/80 font-bold transition-all hover:bg-gray-200 dark:hover:bg-white/10"
                                     >
                                         Cancel
                                     </button>
@@ -1033,7 +1033,7 @@ const App = () => {
                  <Link to="/" className="text-xl font-serif font-bold text-charcoal dark:text-white tracking-wider mb-4 block">
                     YASHAS <span className="text-gold-dark font-serif">ART GALLERY</span>
                   </Link>
-                  <p className="text-sm text-charcoal/40 dark:text-white/20">Handmade with love & Intelligence. © 2024 Yashas Art Gallery.</p>
+                  <p className="text-sm text-charcoal/65 dark:text-white/55">Handmade with love & Intelligence. © 2024 Yashas Art Gallery.</p>
               </footer>
             </div>
           </ThemeProvider>
