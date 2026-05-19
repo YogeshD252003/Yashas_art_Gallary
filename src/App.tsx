@@ -5,6 +5,7 @@ import { WishlistProvider, useWishlist, ArtPiece } from './WishlistContext';
 import { LogOut, User as UserIcon, Heart, ShoppingBag, MapPin, Phone, Mail, ChevronRight, Lock, Eye, EyeOff, Loader2, ShieldCheck, Clock, History, Palette, Sun, Moon, Trash2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { FEATURED_ARTWORKS } from './constants/artPieces';
+import AdminDashboard from './AdminDashboard';
 
 // --- Theme Context ---
 
@@ -60,7 +61,8 @@ const Navbar = () => {
   const [menuOpen, setMenuOpen] = React.useState(false);
 
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 bg-ivory/90 dark:bg-dark-bg/90 backdrop-blur-md border-b border-gold/20 dark:border-white/10 transition-colors duration-300">
+    <nav className="fixed top-0 left-0 right-0 z-50 bg-ivory/90 dark:bg-dark-bg/90 backdrop-blur-md transition-colors duration-300">
+      <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-transparent via-gold-dark/30 to-transparent dark:via-gold/30" />
       <div className="px-4 sm:px-6 py-3 flex justify-between items-center max-w-7xl mx-auto">
         {/* Logo */}
         <Link to="/" className="text-lg sm:text-2xl font-serif font-bold text-charcoal dark:text-white tracking-wider" onClick={() => setMenuOpen(false)}>
@@ -83,7 +85,7 @@ const Navbar = () => {
             <div className="flex items-center gap-3">
               <Link to="/dashboard" className="flex items-center gap-2 text-charcoal dark:text-white hover:text-gold-dark transition-colors">
                 <UserIcon size={20} />
-                <span className="font-medium">{user.full_name.split(' ')[0]}</span>
+                <span className="font-medium">{(user.full_name || user.fullName || "Admin").split(' ')[0]}</span>
               </Link>
               <button onClick={() => { logout(); navigate('/login'); }} className="text-charcoal/80 dark:text-white/60 hover:text-red-500 transition-colors"><LogOut size={20} /></button>
             </div>
@@ -121,7 +123,7 @@ const Navbar = () => {
           {user ? (
             <>
               <Link to="/dashboard" onClick={() => setMenuOpen(false)} className="flex items-center gap-2 text-charcoal dark:text-white font-medium hover:text-gold-dark py-2 border-b border-gold/10">
-                <UserIcon size={18} /> {user.full_name}
+                <UserIcon size={18} /> {user.full_name || user.fullName || "Admin"}
               </Link>
               <button onClick={() => { logout(); navigate('/login'); setMenuOpen(false); }} className="text-red-500 font-medium text-left py-2 flex items-center gap-2">
                 <LogOut size={18} /> Logout
@@ -146,16 +148,24 @@ const Home = () => {
   const { addToWishlist, removeFromWishlist, isInWishlist } = useWishlist();
   
   return (
-    <div className="pt-24 sm:pt-32 px-4 sm:px-6 min-h-screen pb-20">
+    <div className="pt-24 sm:pt-32 px-4 sm:px-6 min-h-screen pb-20 relative overflow-hidden">
+      {/* Ambient Backdrop Gradients */}
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-7xl h-[600px] pointer-events-none overflow-hidden -z-10 opacity-40 dark:opacity-30">
+        <div className="absolute top-[-10%] left-[20%] w-[350px] h-[350px] rounded-full bg-gold-200/50 dark:bg-gold-900/10 blur-[130px]" />
+        <div className="absolute top-[15%] right-[10%] w-[450px] h-[450px] rounded-full bg-amber-200/40 dark:bg-gold-800/5 blur-[160px]" />
+      </div>
+      
       <motion.div 
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         className="max-w-6xl mx-auto text-center"
       >
-        <h1 className="text-3xl sm:text-5xl md:text-7xl mb-4 sm:mb-6 dark:text-white text-charcoal font-bold leading-tight">Experience Art with Intelligence</h1>
-        <p className="text-base sm:text-xl text-charcoal dark:text-white/80 mb-8 sm:mb-12 font-sans max-w-2xl mx-auto font-medium px-2">
+        <h1 className="text-4xl sm:text-6xl md:text-8xl mb-4 sm:mb-6 dark:text-white text-charcoal font-bold leading-tight font-serif tracking-tight">
+          Experience Art with <span className="text-gradient-gold">Intelligence</span>
+        </h1>
+        <p className="text-base sm:text-xl text-charcoal/80 dark:text-white/80 mb-8 sm:mb-12 font-sans max-w-2xl mx-auto font-medium px-2 leading-relaxed">
           Handcrafted treasures, personalized for your most precious moments. 
-          Step into a world where every gift tells a story.
+          Step into a world where every masterpiece tells a beautiful story.
         </p>
         
         {user ? (
@@ -170,16 +180,16 @@ const Home = () => {
 
         {/* Featured Artworks */}
         <div className="mt-16 sm:mt-32 text-left">
-          <h2 className="text-2xl sm:text-4xl italic mb-8 sm:mb-12 flex items-center gap-4">
-            <span className="w-8 sm:w-12 h-[1px] bg-gold-dark block"></span>
-            Featured Artworks
+          <h2 className="text-3xl sm:text-5xl mb-8 sm:mb-12 flex items-center gap-4 font-serif font-bold text-charcoal dark:text-white tracking-tight">
+            <span className="w-8 sm:w-12 h-[2px] bg-gradient-to-r from-gold-600 to-transparent dark:from-gold block"></span>
+            Featured <span className="text-gradient-gold">Artworks</span>
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-8">
             {FEATURED_ARTWORKS.map((artwork) => (
               <motion.div 
                 key={artwork.id}
-                whileHover={{ y: -10 }}
-                className="glass group rounded-[1.5rem] sm:rounded-[2rem] overflow-hidden"
+                whileHover={{ y: -10, scale: 1.01 }}
+                className="glass group rounded-[1.5rem] sm:rounded-[2.5rem] overflow-hidden border border-gold-300/20 dark:border-white/5 hover:border-gold-500/40 dark:hover:border-gold/30 transition-all duration-300"
               >
                 <div className="relative aspect-[4/5] overflow-hidden">
                   <img src={artwork.image} alt={artwork.title} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
@@ -251,6 +261,17 @@ const LoginPage = () => {
   const { login } = useAuth();
   const navigate = useNavigate();
 
+  const decodeToken = (token: string) => {
+    try {
+      const parts = token.split('.');
+      if (parts.length !== 3) return null;
+      const payload = JSON.parse(atob(parts[1]));
+      return payload;
+    } catch (e) {
+      return null;
+    }
+  };
+
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -264,7 +285,12 @@ const LoginPage = () => {
       const data = await res.json();
       if (res.ok) {
         login(data.token, data.userId);
-        navigate('/');
+        const decoded = decodeToken(data.token);
+        if (decoded && decoded.role && (decoded.role.includes('ADMIN') || decoded.role === 'PRODUCT_MANAGER' || decoded.role === 'ORDER_MANAGER')) {
+          navigate('/admin');
+        } else {
+          navigate('/');
+        }
       } else {
         setError(data.error);
       }
@@ -331,8 +357,10 @@ const LoginPage = () => {
           className="glass p-6 sm:p-8 rounded-[1.5rem] sm:rounded-[2.5rem]"
         >
           <div className="text-center mb-8">
-            <h2 className="text-3xl mb-2 italic dark:text-white font-bold text-charcoal">Welcome Back</h2>
-            <p className="text-charcoal dark:text-white/70 font-medium">Choose your preferred login method</p>
+            <h2 className="text-3xl sm:text-4xl mb-2 font-serif font-bold text-charcoal dark:text-white tracking-tight">
+              Welcome <span className="text-gradient-gold">Back</span>
+            </h2>
+            <p className="text-sm text-charcoal/60 dark:text-white/60 font-medium">Choose your preferred credentials to enter the gallery</p>
           </div>
 
           <div className="flex mb-8 p-1 bg-gold/10 dark:bg-white/5 rounded-xl">
@@ -516,8 +544,10 @@ const RegisterPage = () => {
           animate={{ opacity: 1, y: 0 }}
           className="glass p-6 sm:p-10 rounded-[1.5rem] sm:rounded-[2.5rem]"
         >
-          <h2 className="text-2xl sm:text-4xl mb-2 italic dark:text-white font-bold text-charcoal">Join the Gallery</h2>
-          <p className="text-charcoal/80 dark:text-white/65 mb-6 sm:mb-8 font-sans font-medium text-sm sm:text-base">Create an account to unlock personalized art experiences</p>
+          <h2 className="text-3xl sm:text-4xl mb-2 font-serif font-bold text-charcoal dark:text-white tracking-tight">
+            Join the <span className="text-gradient-gold">Gallery</span>
+          </h2>
+          <p className="text-sm text-charcoal/60 dark:text-white/60 mb-6 sm:mb-8 font-sans font-medium">Create an exclusive account to unlock personalized art experiences</p>
 
           {error && <div className="mb-4 p-3 bg-red-50 text-red-500 rounded-lg text-sm">{error}</div>}
 
@@ -678,13 +708,14 @@ const WishlistPage = () => {
                         </AnimatePresence>
                     </div>
                 ) : (
-                    <div className="text-center py-32 glass rounded-[3rem]">
-                        <div className="w-20 h-20 bg-gold/10 rounded-full flex items-center justify-center text-gold-dark mx-auto mb-6">
-                            <Heart size={40} className="opacity-20" />
+                    <div className="text-center py-24 glass rounded-[3rem] border border-gold-300/20 dark:border-white/5 relative overflow-hidden">
+                        <div className="absolute inset-0 bg-gradient-to-b from-gold-100/5 to-transparent dark:from-white/[0.01] dark:to-transparent pointer-events-none" />
+                        <div className="w-24 h-24 bg-gradient-to-br from-gold-100 to-gold-50 dark:from-white/5 dark:to-white/10 rounded-3xl flex items-center justify-center text-gold-700 dark:text-gold mx-auto mb-6 shadow-inner relative group hover:scale-110 transition-transform duration-300">
+                            <Heart size={44} className="fill-gold-400/20 dark:fill-gold/10 text-gold-500 animate-pulse" />
                         </div>
-                        <h3 className="text-2xl font-serif italic mb-4 dark:text-white">Your wishlist is currently empty</h3>
-                        <p className="text-charcoal/80 dark:text-white/65 mb-8 max-w-sm mx-auto">Discover unique art pieces and handcrafted treasures to fill your collection.</p>
-                        <Link to="/" className="btn-gold py-3 px-10">Start Discovering</Link>
+                        <h3 className="text-3xl font-serif font-bold text-charcoal dark:text-white mb-4">Your wishlist is empty</h3>
+                        <p className="text-sm text-charcoal/60 dark:text-white/60 mb-8 max-w-sm mx-auto leading-relaxed">Discover unique art pieces and handcrafted treasures to fill your private collection.</p>
+                        <Link to="/" className="btn-gold py-3 px-10 inline-block">Start Discovering</Link>
                     </div>
                 )}
             </div>
@@ -708,7 +739,7 @@ const DashboardPage = () => {
     React.useEffect(() => {
         if (user) {
             setEditForm({
-                full_name: user.full_name,
+                full_name: user.full_name || user.fullName || '',
                 location: user.location || '',
                 age: user.age?.toString() || ''
             });
@@ -781,12 +812,12 @@ const DashboardPage = () => {
                 <div className="lg:col-span-1 space-y-8">
                     <div className="glass overflow-hidden rounded-[2.5rem] p-8">
                         <div className="flex flex-col items-center text-center">
-                            <div className="w-24 h-24 bg-gold rounded-3xl shadow-lg flex items-center justify-center text-ivory mb-4">
+                            <div className="w-24 h-24 bg-gradient-to-br from-gold-300 to-gold-600 dark:from-gold-dark dark:to-gold-700 rounded-3xl shadow-lg flex items-center justify-center text-white mb-4">
                                 <UserIcon size={48} />
                             </div>
-                            <h2 className="text-3xl italic mb-1 dark:text-white font-bold text-charcoal">{user.full_name}</h2>
-                            <p className="text-charcoal/80 dark:text-white/65 text-sm mb-6 font-medium">{user.email}</p>
-                            <span className="px-4 py-1.5 bg-gold/20 dark:bg-gold-dark/20 text-gold-dark rounded-full text-xs font-bold uppercase tracking-widest border border-gold/30">
+                            <h2 className="text-3xl font-serif font-bold text-charcoal dark:text-white mb-1">{user.full_name || user.fullName || "Admin"}</h2>
+                            <p className="text-xs text-charcoal/50 dark:text-white/50 mb-6 font-semibold uppercase tracking-wider">{user.email}</p>
+                            <span className="px-4 py-1.5 bg-gold-100/40 dark:bg-gold-dark/20 text-gold-700 dark:text-gold rounded-full text-[10px] font-extrabold uppercase tracking-widest border border-gold-300/30 dark:border-white/10 shadow-sm">
                                 Platinum Member
                             </span>
                             <button 
@@ -842,14 +873,14 @@ const DashboardPage = () => {
 
                 {/* Dashboard Main Content */}
                 <div className="lg:col-span-2 space-y-8">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-charcoal font-medium">
-                        <div className="glass p-8 rounded-[2.5rem] bg-gradient-to-br from-white/40 to-gold/10 dark:from-white/5 dark:to-white/10">
-                            <h4 className="text-charcoal/80 dark:text-white/60 text-xs font-bold uppercase mb-2">My Art Collection</h4>
-                            <p className="text-4xl font-serif dark:text-white font-bold text-charcoal">12 <span className="text-sm text-charcoal/80 dark:text-white/60 lowercase italic">Items</span></p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-charcoal dark:text-white font-medium">
+                        <div className="glass p-8 rounded-[2.5rem] bg-gradient-to-br from-white/40 to-gold/10 dark:from-white/5 dark:to-white/10 border border-gold-300/20 dark:border-white/5">
+                            <h4 className="text-charcoal/60 dark:text-white/50 text-[10px] font-bold uppercase tracking-widest mb-2">My Art Collection</h4>
+                            <p className="text-4xl font-serif dark:text-white font-bold text-charcoal">12 <span className="text-sm text-charcoal/60 dark:text-white/50 lowercase italic">Items</span></p>
                         </div>
-                        <Link to="/wishlist" className="glass p-8 rounded-[2.5rem] bg-gradient-to-br from-white/40 to-gold/10 dark:from-white/5 dark:to-white/10 block hover:scale-[1.02] transition-transform">
-                            <h4 className="text-charcoal/80 dark:text-white/60 text-xs font-bold uppercase mb-2">My Wishlist</h4>
-                            <p className="text-4xl font-serif dark:text-white font-bold text-charcoal">{wishlist.length.toString().padStart(2, '0')} <span className="text-sm text-charcoal/80 dark:text-white/60 lowercase italic">Saved</span></p>
+                        <Link to="/wishlist" className="glass p-8 rounded-[2.5rem] bg-gradient-to-br from-white/40 to-gold/10 dark:from-white/5 dark:to-white/10 block hover:scale-[1.02] transition-transform border border-gold-300/20 dark:border-white/5">
+                            <h4 className="text-charcoal/60 dark:text-white/50 text-[10px] font-bold uppercase tracking-widest mb-2">My Wishlist</h4>
+                            <p className="text-4xl font-serif dark:text-white font-bold text-charcoal">{wishlist.length.toString().padStart(2, '0')} <span className="text-sm text-charcoal/60 dark:text-white/50 lowercase italic">Saved</span></p>
                         </Link>
                     </div>
 
@@ -928,10 +959,10 @@ const DashboardPage = () => {
 
                     <div className="glass p-8 rounded-[2.5rem]">
                         <h3 className="text-2xl italic mb-4 dark:text-white">Your Intelligence Assistant</h3>
-                        <div className="p-6 bg-gold-dark dark:bg-gold-dark/80 text-ivory rounded-3xl">
-                            <p className="italic mb-4">"Based on your location in {user.location || 'your area'}, we recommend exploring our 'Desert Sands' collection for your next home decor upgrade."</p>
-                            <Link to="/" className="text-sm font-bold flex items-center gap-1 hover:gap-2 transition-all">
-                                Explore Recommendations <ChevronRight size={16} />
+                        <div className="p-6 bg-gradient-to-br from-gold-600 to-gold-800 dark:from-gold-dark dark:to-gold-700 text-white rounded-3xl shadow-lg shadow-gold-600/10 dark:shadow-black/20 border border-gold-500/20">
+                            <p className="italic mb-4 text-white/95 leading-relaxed font-serif text-base">"Based on your location in {user.location || 'your area'}, we recommend exploring our 'Desert Sands' collection for your next home decor upgrade."</p>
+                            <Link to="/" className="text-xs uppercase font-extrabold tracking-widest flex items-center gap-1.5 hover:gap-2.5 transition-all text-white hover:underline">
+                                Explore Recommendations <ChevronRight size={14} />
                             </Link>
                         </div>
                     </div>
@@ -1021,10 +1052,12 @@ const App = () => {
               <main>
                 <Routes>
                   <Route path="/" element={<Home />} />
+                  <Route path="/auth" element={<LoginPage />} />
                   <Route path="/login" element={<LoginPage />} />
                   <Route path="/register" element={<RegisterPage />} />
                   <Route path="/dashboard" element={<DashboardPage />} />
                   <Route path="/wishlist" element={<WishlistPage />} />
+                  <Route path="/admin/*" element={<AdminDashboard />} />
                   <Route path="*" element={<Navigate to="/" />} />
                 </Routes>
               </main>
@@ -1033,7 +1066,11 @@ const App = () => {
                  <Link to="/" className="text-xl font-serif font-bold text-charcoal dark:text-white tracking-wider mb-4 block">
                     YASHAS <span className="text-gold-dark font-serif">ART GALLERY</span>
                   </Link>
-                  <p className="text-sm text-charcoal/65 dark:text-white/55">Handmade with love & Intelligence. © 2024 Yashas Art Gallery.</p>
+                  <p className="text-sm text-charcoal/65 dark:text-white/55 mb-6">Handmade with love & Intelligence. © 2024 Yashas Art Gallery.</p>
+                  <Link to="/login" className="inline-flex items-center gap-1.5 text-xs font-bold text-gold-600 dark:text-gold hover:text-gold-700 dark:hover:text-white border border-gold-300/50 dark:border-white/15 px-4 py-1.5 rounded-full transition-all bg-gold-100/10 hover:bg-gold-100/25 dark:bg-white/5 dark:hover:bg-white/10 backdrop-blur-sm shadow-sm hover:shadow-md hover:scale-105 active:scale-95 uppercase tracking-wider text-[10px]">
+                    <Lock size={12} className="text-gold-600 dark:text-gold" />
+                    <span>Portal Access</span>
+                  </Link>
               </footer>
             </div>
           </ThemeProvider>

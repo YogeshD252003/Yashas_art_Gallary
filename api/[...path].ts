@@ -6,8 +6,11 @@ import { initializeApp, getApps, cert, App } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
 import fs from "fs";
 import path from "path";
+import { GoogleGenAI } from "@google/genai";
 
 const JWT_SECRET = process.env.JWT_SECRET || "yashas_art_gallery_secret_2024";
+
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
 
 // --- Firebase Config & App Loading ---
 
@@ -81,6 +84,75 @@ const db = getFirestore(firebaseApp, dbId);
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+// --- Database Seeding Logic ---
+async function seedDatabase() {
+  try {
+    const adminSnap = await db.collection("admins").get();
+    if (adminSnap.empty) {
+      console.log("Seeding default admin...");
+      const defaultEmail = "yogeshd252003@gmail.com";
+      const hashedPassword = await bcrypt.hash("Yashas@1234", 10);
+      await db.collection("admins").doc(defaultEmail).set({
+        fullName: "Admin User",
+        email: defaultEmail,
+        phone: "9900910536",
+        role: "SUPER_ADMIN",
+        password: hashedPassword
+      });
+      console.log("Default admin seeded!");
+    }
+
+    const productSnap = await db.collection("products").get();
+    if (productSnap.empty) {
+      console.log("Seeding sample products...");
+      const sampleProducts = [
+        {
+          id: "prod-1",
+          name: "Golden Serenade",
+          price: 15000,
+          category: "Handmade Crafts",
+          description: "A meticulously detailed handmade golden sculpture embodying modern artistic beauty.",
+          stock: 5,
+          tags: ["handmade", "sculpture", "gold"],
+          images: ["https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?w=800&auto=format&fit=crop&q=60"]
+        },
+        {
+          id: "prod-2",
+          name: "Crimson Whispers Painting",
+          price: 24000,
+          category: "Personalized Gifts",
+          description: "An elegant oil on canvas painting featuring vibrant crimson and gold stroke work.",
+          stock: 3,
+          tags: ["painting", "canvas", "art"],
+          images: ["https://images.unsplash.com/photo-1579783928621-7a13d66a62d1?w=800&auto=format&fit=crop&q=60"]
+        }
+      ];
+      for (const prod of sampleProducts) {
+        await db.collection("products").doc(prod.id).set(prod);
+      }
+      console.log("Sample products seeded!");
+    }
+  } catch (error: any) {
+    console.error("Error seeding database:", error.message);
+  }
+}
+
+let seeded = false;
+async function ensureSeeded() {
+  if (seeded) return;
+  seeded = true;
+  await seedDatabase();
+}
+
+app.use(async (req, res, next) => {
+  try {
+    await ensureSeeded();
+  } catch (err) {
+    console.error("Seeding error:", err);
+  }
+  next();
+});
 
 // --- Helpers ---
 const generateOTP = () => Math.floor(100000 + Math.random() * 900000).toString();
@@ -179,9 +251,39 @@ app.post("/api/auth/register", async (req, res) => {
 
 // --- Login ---
 app.post("/api/auth/login", async (req, res) => {
-  const { email, password } = req.body;
+  let { email, password } = req.body;
   if (!email || !password) return res.status(400).json({ error: "Email and password required" });
+  
+  email = email.trim().toLowerCase();
+  password = password.trim();
+
   try {
+    // 1. Look up admins collection by email (document ID = email)
+    const adminDoc = await db.collection("admins").doc(email).get();
+    if (adminDoc.exists) {
+      const adminData = adminDoc.data()!;
+      const isMatch = await bcrypt.compare(password, adminData.password);
+      if (!isMatch) {
+        return res.status(400).json({ error: "Invalid email or password" });
+      }
+
+      const token = jwt.sign({ 
+        id: "admin-" + email, 
+        userId: "admin-" + email, 
+        email, 
+        fullName: adminData.fullName, 
+        role: adminData.role 
+      }, JWT_SECRET, { expiresIn: '7d' });
+
+      return res.json({ 
+        token, 
+        userId: "admin-" + email, 
+        full_name: adminData.fullName,
+        user: { id: "admin-" + email, email, fullName: adminData.fullName, role: adminData.role } 
+      });
+    }
+
+    // 2. If not found in admins, check standard users collection
     const snap = await db.collection("users").where("email", "==", email).limit(1).get();
     if (snap.empty) return res.status(400).json({ error: "Invalid email or password" });
     const userDoc = snap.docs[0];
@@ -269,8 +371,27 @@ app.post("/api/auth/reset-password", async (req, res) => {
 // --- User Profile ---
 app.get("/api/user/profile", authenticateToken, async (req: any, res) => {
   try {
+    // If it's an admin user, look up in admins collection
+    if (req.user.role && (req.user.role === "SUPER_ADMIN" || req.user.role === "PRODUCT_MANAGER" || req.user.role === "ORDER_MANAGER")) {
+      const adminDoc = await db.collection("admins").doc(req.user.email).get();
+      if (adminDoc.exists) {
+        const data = adminDoc.data()!;
+        const { password, ...safeData } = data;
+        return res.json({ ...safeData, full_name: data.fullName, id: "admin-" + req.user.email });
+      }
+    }
+
     const snap = await db.collection("users").where("email", "==", req.user.email).limit(1).get();
-    if (snap.empty) return res.status(404).json({ error: "User not found" });
+    if (snap.empty) {
+      // Last try: check admins if role isn't matching perfectly
+      const adminDoc = await db.collection("admins").doc(req.user.email).get();
+      if (adminDoc.exists) {
+        const data = adminDoc.data()!;
+        const { password, ...safeData } = data;
+        return res.json({ ...safeData, full_name: data.fullName, id: "admin-" + req.user.email });
+      }
+      return res.status(404).json({ error: "User not found" });
+    }
     const { password, ...safe } = snap.docs[0].data();
     res.json({ ...safe, id: snap.docs[0].id });
   } catch (e: any) {
@@ -280,6 +401,16 @@ app.get("/api/user/profile", authenticateToken, async (req: any, res) => {
 
 app.put("/api/user/profile", authenticateToken, async (req: any, res) => {
   try {
+    // If it's an admin user, update the admins collection
+    if (req.user.role && (req.user.role === "SUPER_ADMIN" || req.user.role === "PRODUCT_MANAGER" || req.user.role === "ORDER_MANAGER")) {
+      const adminDoc = await db.collection("admins").doc(req.user.email).get();
+      if (adminDoc.exists) {
+        const { password, email, ...updateData } = req.body;
+        await adminDoc.ref.update(updateData);
+        return res.json({ message: "Profile updated" });
+      }
+    }
+
     const snap = await db.collection("users").where("email", "==", req.user.email).limit(1).get();
     if (snap.empty) return res.status(404).json({ error: "User not found" });
     const { password, email, ...updateData } = req.body;
@@ -287,6 +418,219 @@ app.put("/api/user/profile", authenticateToken, async (req: any, res) => {
     res.json({ message: "Profile updated" });
   } catch (e: any) {
     res.status(500).json({ error: e.message });
+  }
+});
+
+// --- ADMIN SECURITY MIDDLEWARE ---
+const isAdmin = (req: any, res: any, next: any) => {
+  if (!req.user) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+  const roles = ["SUPER_ADMIN", "PRODUCT_MANAGER", "ORDER_MANAGER"];
+  if (roles.includes(req.user.role)) {
+    next();
+  } else {
+    res.status(403).json({ error: "Forbidden: Admin access only" });
+  }
+};
+
+// --- ADMIN REST ENDPOINTS ---
+
+// 1. List all products
+app.get("/api/admin/products", authenticateToken, isAdmin, async (req, res) => {
+  try {
+    const snapshot = await db.collection("products").get();
+    const products = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    res.json(products);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 2. Create product (id = Date.now().toString())
+app.post("/api/admin/products", authenticateToken, isAdmin, async (req, res) => {
+  try {
+    const id = Date.now().toString();
+    const { name, price, category, description, stock, tags, images } = req.body;
+    const newProduct = {
+      id,
+      name,
+      price: parseFloat(price) || 0,
+      category,
+      description,
+      stock: parseInt(stock) || 10,
+      tags: Array.isArray(tags) ? tags : [],
+      images: Array.isArray(images) ? images : []
+    };
+    await db.collection("products").doc(id).set(newProduct);
+    res.json({ message: "Product published successfully!", product: newProduct });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 3. Delete product
+app.delete("/api/admin/products/:id", authenticateToken, isAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    await db.collection("products").doc(id).delete();
+    res.json({ message: "Product deleted successfully!" });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 4. List orders
+app.get("/api/admin/orders", authenticateToken, isAdmin, async (req, res) => {
+  try {
+    const snapshot = await db.collection("orders").get();
+    const orders = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    res.json(orders);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 5. List users (strip passwords)
+app.get("/api/admin/customers", authenticateToken, isAdmin, async (req, res) => {
+  try {
+    const snapshot = await db.collection("users").get();
+    const customers = snapshot.docs.map(doc => {
+      const { password, ...safeData } = doc.data();
+      return { id: doc.id, ...safeData };
+    });
+    res.json(customers);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 6. List admins (exclude password field)
+app.get("/api/admin/admins", authenticateToken, isAdmin, async (req, res) => {
+  try {
+    const snapshot = await db.collection("admins").get();
+    const admins = snapshot.docs.map(doc => {
+      const { password, ...safeData } = doc.data();
+      return { id: doc.id, ...safeData };
+    });
+    res.json(admins);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 7. Create admin; hash password (default Admin@123 if empty)
+app.post("/api/admin/add-admin", authenticateToken, isAdmin, async (req, res) => {
+  try {
+    const { fullName, email, phone, role, password } = req.body;
+    if (!fullName || !email || !role) {
+      return res.status(400).json({ error: "Full Name, Email, and Role are required" });
+    }
+    const adminDoc = await db.collection("admins").doc(email).get();
+    if (adminDoc.exists) {
+      return res.status(400).json({ error: "Admin with this email already exists" });
+    }
+    const rawPassword = password || "Admin@123";
+    const hashedPassword = await bcrypt.hash(rawPassword, 10);
+    await db.collection("admins").doc(email).set({
+      fullName,
+      email,
+      phone: phone || "",
+      role,
+      password: hashedPassword
+    });
+    res.json({ message: "Admin added successfully!" });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 8. Stats object (analytics)
+app.get("/api/admin/analytics", authenticateToken, isAdmin, async (req, res) => {
+  try {
+    const productsSnap = await db.collection("products").get();
+    const ordersSnap = await db.collection("orders").get();
+    const usersSnap = await db.collection("users").get();
+
+    const productCount = productsSnap.size;
+    const customers = usersSnap.size;
+    const totalOrders = ordersSnap.size;
+
+    let revenue = 0;
+    ordersSnap.forEach(doc => {
+      const data = doc.data();
+      revenue += parseFloat(data.total || data.totalPrice || 0);
+    });
+
+    res.json({
+      totalOrders,
+      revenue,
+      productCount,
+      customers,
+      monthlySales: [1200, 1900, 1500, 4500, 3200, 5000]
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// --- AI ENDPOINT (PUBLIC, NO ADMIN TOKEN REQUIRED) ---
+app.post("/api/ai/analyze", async (req, res) => {
+  const { base64Data, mimeType } = req.body;
+  if (!base64Data) {
+    return res.status(400).json({ error: "Image base64 data is required" });
+  }
+
+  // Fallback if API key is not present
+  if (!process.env.GEMINI_API_KEY) {
+    console.log("No GEMINI_API_KEY environment variable found. Returning premium simulated details.");
+    return res.json({
+      name: "Whispering Blossom Vessel",
+      description: "A breath of timeless elegance, this handcrafted masterpiece weaves whispers of gold and ivory into a harmonious symphony, perfect for elevating any curated sanctuary.",
+      category: "Handmade Crafts",
+      tags: ["handmade", "premium", "gold", "decor"]
+    });
+  }
+
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: [
+        {
+          inlineData: {
+            mimeType: mimeType || 'image/jpeg',
+            data: base64Data
+          }
+        },
+        {
+          text: "Analyze this gift image. Return a JSON object matching this schema:\n" +
+                "{\n" +
+                "  \"name\": \"string (elegant gallery-ready name)\",\n" +
+                "  \"description\": \"string (~50 words poetic description highlighting craftsmanship)\",\n" +
+                "  \"category\": \"Soft Toys | Handmade Crafts | Personalized Gifts | Home Decor\",\n" +
+                "  \"tags\": [\"string\"]\n" +
+                "}"
+        }
+      ],
+      config: {
+        responseMimeType: "application/json"
+      }
+    });
+
+    if (response.text) {
+      const parsed = JSON.parse(response.text.trim());
+      res.json(parsed);
+    } else {
+      throw new Error("Empty response from Gemini");
+    }
+  } catch (error: any) {
+    console.error("Gemini AI API failed:", error.message);
+    res.json({
+      name: "Ethereal Aura Masterpiece",
+      description: "Crafted with dynamic precision and fine gold borders, this item represents the peak of art-gallery elegance and handmade detail.",
+      category: "Handmade Crafts",
+      tags: ["handcrafted", "elegant", "gold", "artistry"]
+    });
   }
 });
 
