@@ -4,18 +4,44 @@ import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import { initializeApp, getApps, cert, App } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
+import fs from "fs";
+import path from "path";
 
 const JWT_SECRET = process.env.JWT_SECRET || "yashas_art_gallery_secret_2024";
 
-// Firebase Config
-const FIREBASE_PROJECT_ID = "deft-racer-490609-c1";
-const FIREBASE_STORAGE_BUCKET = "deft-racer-490609-c1.firebasestorage.app";
-const FIREBASE_DB_ID = "ai-studio-f96ec1c7-2a9b-41ee-adf7-3aeac8a8f8a0";
+// --- Firebase Config & App Loading ---
 
-// Initialize Firebase Admin (singleton safe for serverless)
+// 1. Try to load config from environment variables or files on disk
+let projectToUse = process.env.FIREBASE_PROJECT_ID;
+let storageBucketToUse = process.env.FIREBASE_STORAGE_BUCKET;
+let databaseIdToUse = process.env.FIREBASE_DATABASE_ID;
+
+// Fallback to reading from firebase-applet-config.json if exists
+try {
+  const configPath = path.join(process.cwd(), "firebase-applet-config.json");
+  if (fs.existsSync(configPath)) {
+    const fileConfig = JSON.parse(fs.readFileSync(configPath, "utf8"));
+    if (!projectToUse) projectToUse = fileConfig.projectId;
+    if (!storageBucketToUse) storageBucketToUse = fileConfig.storageBucket;
+    if (!databaseIdToUse) databaseIdToUse = fileConfig.firestoreDatabaseId;
+  }
+} catch (err: any) {
+  console.warn("⚠️ Could not parse firebase-applet-config.json in serverless route:", err.message);
+}
+
+// Fallback to hardcoded defaults if still not found
+projectToUse = projectToUse || "deft-racer-490609-c1";
+storageBucketToUse = storageBucketToUse || `${projectToUse}.firebasestorage.app`;
+databaseIdToUse = databaseIdToUse || "ai-studio-f96ec1c7-2a9b-41ee-adf7-3aeac8a8f8a0";
+
+// 2. Initialize Firebase Admin
 let firebaseApp: App;
 const existingApps = getApps();
-const foundApp = existingApps.find(a => a.options.projectId === FIREBASE_PROJECT_ID);
+
+// Ensure project ID is trimmed to avoid whitespace issues
+projectToUse = projectToUse.trim();
+
+const foundApp = existingApps.find(a => a.options.projectId === projectToUse);
 
 if (foundApp) {
   firebaseApp = foundApp;
@@ -24,19 +50,32 @@ if (foundApp) {
   try {
     if (process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
       credential = cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY));
+    } else {
+      const saPath = path.join(process.cwd(), "serviceAccountKey.json");
+      if (fs.existsSync(saPath)) {
+        const serviceAccount = JSON.parse(fs.readFileSync(saPath, "utf8"));
+        credential = cert(serviceAccount);
+        // If serviceAccount file has a different project_id than config, let's align them
+        if (serviceAccount.project_id && !process.env.FIREBASE_PROJECT_ID && (!fs.existsSync(path.join(process.cwd(), "firebase-applet-config.json")) || projectToUse === "deft-racer-490609-c1")) {
+          projectToUse = serviceAccount.project_id.trim();
+          storageBucketToUse = `${projectToUse}.firebasestorage.app`;
+          databaseIdToUse = "(default)"; // Switch to default database for the new custom project
+        }
+      }
     }
   } catch (e: any) {
-    console.error("Failed to parse FIREBASE_SERVICE_ACCOUNT_KEY:", e.message);
+    console.error("Failed to load/parse service account key:", e.message);
   }
 
   firebaseApp = initializeApp({
-    projectId: FIREBASE_PROJECT_ID,
-    storageBucket: FIREBASE_STORAGE_BUCKET,
+    projectId: projectToUse,
+    storageBucket: storageBucketToUse,
     ...(credential ? { credential } : {}),
-  }, `app-yashas`);
+  }, `app-${projectToUse.slice(0, 8)}`);
 }
 
-const db = getFirestore(firebaseApp, FIREBASE_DB_ID);
+const dbId = databaseIdToUse === "(default)" ? undefined : databaseIdToUse;
+const db = getFirestore(firebaseApp, dbId);
 
 // --- Express App ---
 const app = express();
@@ -68,7 +107,7 @@ app.get("/api/health", async (_req, res) => {
     await db.collection("health_check").doc("status").set({
       last_check: new Date().toISOString(),
     });
-    res.json({ status: "ok", firebase: "connected", project: FIREBASE_PROJECT_ID });
+    res.json({ status: "ok", firebase: "connected", project: projectToUse });
   } catch (e: any) {
     res.status(500).json({ status: "error", error: e.message });
   }

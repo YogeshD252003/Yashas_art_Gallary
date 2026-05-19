@@ -10,17 +10,37 @@ import fs from "fs";
 
 dotenv.config();
 
-// Firebase Config (hardcoded from firebase-applet-config.json)
-const firebaseConfig = {
-  projectId: "deft-racer-490609-c1",
-  storageBucket: "deft-racer-490609-c1.firebasestorage.app",
-  firestoreDatabaseId: "ai-studio-f96ec1c7-2a9b-41ee-adf7-3aeac8a8f8a0"
-};
+// --- Firebase Config & App Loading ---
 
-// Initialize Firebase Admin
+// 1. Try to load config from environment variables or files on disk
+let projectToUse = process.env.FIREBASE_PROJECT_ID;
+let storageBucketToUse = process.env.FIREBASE_STORAGE_BUCKET;
+let databaseIdToUse = process.env.FIREBASE_DATABASE_ID;
+
+// Fallback to reading from firebase-applet-config.json if exists
+try {
+  const configPath = path.join(process.cwd(), "firebase-applet-config.json");
+  if (fs.existsSync(configPath)) {
+    const fileConfig = JSON.parse(fs.readFileSync(configPath, "utf8"));
+    if (!projectToUse) projectToUse = fileConfig.projectId;
+    if (!storageBucketToUse) storageBucketToUse = fileConfig.storageBucket;
+    if (!databaseIdToUse) databaseIdToUse = fileConfig.firestoreDatabaseId;
+  }
+} catch (err: any) {
+  console.warn("⚠️ Could not parse firebase-applet-config.json:", err.message);
+}
+
+// Fallback to hardcoded defaults if still not found
+projectToUse = projectToUse || "deft-racer-490609-c1";
+storageBucketToUse = storageBucketToUse || `${projectToUse}.firebasestorage.app`;
+databaseIdToUse = databaseIdToUse || "ai-studio-f96ec1c7-2a9b-41ee-adf7-3aeac8a8f8a0";
+
+// 2. Initialize Firebase Admin
 let firebaseApp: App;
 const existingApps = getApps();
-const projectToUse = firebaseConfig.projectId;
+
+// Ensure project ID is trimmed to avoid whitespace issues
+projectToUse = projectToUse.trim();
 
 const foundApp = existingApps.find(app => app.options.projectId === projectToUse);
 
@@ -33,8 +53,17 @@ if (foundApp) {
     if (process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
       credential = cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY));
     } else {
-      const serviceAccount = JSON.parse(fs.readFileSync(path.join(process.cwd(), "serviceAccountKey.json"), "utf8"));
-      credential = cert(serviceAccount);
+      const saPath = path.join(process.cwd(), "serviceAccountKey.json");
+      if (fs.existsSync(saPath)) {
+        const serviceAccount = JSON.parse(fs.readFileSync(saPath, "utf8"));
+        credential = cert(serviceAccount);
+        // If serviceAccount file has a different project_id than config, let's align them
+        if (serviceAccount.project_id && !process.env.FIREBASE_PROJECT_ID && (!fs.existsSync(path.join(process.cwd(), "firebase-applet-config.json")) || projectToUse === "deft-racer-490609-c1")) {
+          projectToUse = serviceAccount.project_id.trim();
+          storageBucketToUse = `${projectToUse}.firebasestorage.app`;
+          databaseIdToUse = "(default)"; // Switch to default database for the new custom project
+        }
+      }
     }
   } catch (error: any) {
     console.warn("⚠️ WARNING: Could not load Firebase Service Account Credentials. Admin SDK may fail with PERMISSION_DENIED.", error.message);
@@ -43,14 +72,13 @@ if (foundApp) {
   firebaseApp = initializeApp({
     projectId: projectToUse,
     ...(credential ? { credential } : {}),
-    storageBucket: firebaseConfig.storageBucket, // Added for Storage functionality
-  }, `app-${projectToUse.slice(0, 8)}`); // Use a named app to avoid collisions
+    storageBucket: storageBucketToUse,
+  }, `app-${projectToUse.slice(0, 8)}`);
   console.log(`Initialized new Firebase app for project: ${projectToUse}`);
 }
 
 // Access the specific database
-// Use undefined if it's (default)
-const dbId = firebaseConfig.firestoreDatabaseId === "(default)" ? undefined : firebaseConfig.firestoreDatabaseId;
+const dbId = databaseIdToUse === "(default)" ? undefined : databaseIdToUse;
 const db = getFirestore(firebaseApp, dbId);
 console.log(`Firestore connected to project: ${projectToUse}, database: ${dbId || "(default)"}`);
 
