@@ -17,9 +17,13 @@ import {
   X, 
   CheckCircle,
   TrendingUp,
-  AlertCircle
+  AlertCircle,
+  Box,
+  Image as ImageIcon
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { Product3DViewer } from './3d/Product3DViewer';
+import { compressImage, generateThumbnail, fileToBase64, validateFileSize } from './utils/fileHelpers';
 
 // --- Shared UI Components ---
 
@@ -265,6 +269,7 @@ const OverviewPage = () => {
 
 // 2. Add Product Page
 const AddProductPage = () => {
+  const [productType, setProductType] = useState<"IMAGE" | "3D">("IMAGE");
   const [name, setName] = useState('');
   const [price, setPrice] = useState('');
   const [category, setCategory] = useState('');
@@ -277,16 +282,29 @@ const AddProductPage = () => {
   const [aiLoading, setAiLoading] = useState(false);
   const [submitLoading, setSubmitLoading] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
+  const [errorMsg, setErrorMsg] = useState('');
+  const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
 
-  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    setErrorMsg('');
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
-      setImageFile(file);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImagePreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+      
+      if (productType === 'IMAGE') {
+        if (!validateFileSize(file, 5)) {
+          setErrorMsg('Image size exceeds 5MB limit.');
+          return;
+        }
+        setImageFile(file);
+        setImagePreview(URL.createObjectURL(file));
+      } else {
+        if (!validateFileSize(file, 30)) {
+          setErrorMsg('3D model size exceeds 30MB limit.');
+          return;
+        }
+        setImageFile(file);
+        setImagePreview(URL.createObjectURL(file));
+      }
     }
   };
 
@@ -323,11 +341,47 @@ const AddProductPage = () => {
     e.preventDefault();
     setSubmitLoading(true);
     setSuccessMsg('');
+    setErrorMsg('');
     try {
       const tagsArray = tags.split(',').map(t => t.trim()).filter(Boolean);
-      // Fallback unsplash image if no custom file upload exists
-      const fallbackUrl = "https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?w=800&auto=format&fit=crop&q=60";
-      const finalImage = imagePreview || fallbackUrl;
+      
+      let finalFileUrl = "";
+      let thumbnailUrl = "";
+      let finalProductType = productType;
+      
+      if (imageFile) {
+        const base64Data = await fileToBase64(imageFile);
+        
+        const uploadRes = await fetch('/api/admin/upload', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          },
+          body: JSON.stringify({
+            fileName: imageFile.name,
+            mimeType: imageFile.type || (productType === "3D" ? "model/gltf-binary" : "image/jpeg"),
+            base64Data,
+            folder: productType === '3D' ? 'models' : 'images'
+          })
+        });
+        
+        if (!uploadRes.ok) {
+          const errData = await uploadRes.json();
+          throw new Error(errData.error || "Upload failed");
+        }
+        
+        const uploadData = await uploadRes.json();
+        finalFileUrl = uploadData.url;
+        
+        if (productType === 'IMAGE') {
+           thumbnailUrl = await generateThumbnail(imageFile, 400);
+        }
+      } else {
+        finalFileUrl = productType === 'IMAGE' 
+           ? "https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?w=800&auto=format&fit=crop&q=60"
+           : "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/DamagedHelmet/glTF-Binary/DamagedHelmet.glb";
+      }
 
       const res = await fetch('/api/admin/products', {
         method: 'POST',
@@ -342,7 +396,9 @@ const AddProductPage = () => {
           description,
           stock,
           tags: tagsArray,
-          images: [finalImage]
+          images: productType === 'IMAGE' ? [finalFileUrl] : [thumbnailUrl || "https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?w=400&auto=format&fit=crop&q=60"],
+          type: finalProductType,
+          modelUrl: productType === '3D' ? finalFileUrl : undefined,
         })
       });
 
@@ -356,9 +412,13 @@ const AddProductPage = () => {
         setTags('');
         setImageFile(null);
         setImagePreview('');
+      } else {
+        const errData = await res.json();
+        throw new Error(errData.error || "Failed to publish product");
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
+      setErrorMsg(err.message || "An unexpected error occurred");
     } finally {
       setSubmitLoading(false);
     }
@@ -371,6 +431,30 @@ const AddProductPage = () => {
           Publish <span className="text-gradient-gold">Masterpiece</span>
         </h1>
         <p className="text-sm text-charcoal/60 dark:text-white/50 mt-1 font-medium">Expose a new curated art product to the gallery catalog</p>
+      </div>
+
+      {errorMsg && (
+         <div className="p-4 bg-rose-500/10 border border-rose-500/20 rounded-2xl flex items-center gap-3 text-rose-700 dark:text-rose-400 text-sm font-medium">
+           <AlertCircle size={18} />
+           {errorMsg}
+         </div>
+      )}
+
+      <div className="flex gap-2 p-1 bg-white/50 dark:bg-white/5 rounded-2xl w-max border border-gold-300/30 dark:border-white/10 shadow-inner">
+        <button
+          type="button"
+          onClick={() => { setProductType("IMAGE"); setImageFile(null); setImagePreview(''); }}
+          className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all ${productType === "IMAGE" ? "bg-white dark:bg-white/10 text-charcoal dark:text-white shadow-sm border border-black/5 dark:border-white/5" : "text-charcoal/60 dark:text-white/50 hover:text-charcoal dark:hover:text-white"}`}
+        >
+          <ImageIcon size={16} /> 2D Image
+        </button>
+        <button
+          type="button"
+          onClick={() => { setProductType("3D"); setImageFile(null); setImagePreview(''); }}
+          className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all ${productType === "3D" ? "bg-white dark:bg-white/10 text-charcoal dark:text-white shadow-sm border border-black/5 dark:border-white/5" : "text-charcoal/60 dark:text-white/50 hover:text-charcoal dark:hover:text-white"}`}
+        >
+          <Box size={16} /> 3D Model
+        </button>
       </div>
 
       <AnimatePresence>
@@ -391,28 +475,45 @@ const AddProductPage = () => {
         {/* Left Side: Upload Column */}
         <div className="md:col-span-5 space-y-5">
           <span className="text-[10px] font-bold tracking-widest text-charcoal/60 dark:text-white/50 uppercase block ml-1">
-            Artwork Presentation
+            {productType === "IMAGE" ? "Artwork Image" : "3D Model Asset"}
           </span>
-          <div className="border-2 border-dashed border-gold-300/40 dark:border-white/15 rounded-[32px] p-4 flex flex-col justify-center items-center aspect-square relative bg-white/40 dark:bg-white/3 hover:bg-white/60 dark:hover:bg-white/5 transition-all shadow-inner">
+          <div className="border-2 border-dashed border-gold-300/40 dark:border-white/15 rounded-[32px] p-4 flex flex-col justify-center items-center aspect-square relative bg-white/40 dark:bg-white/3 hover:bg-white/60 dark:hover:bg-white/5 transition-all shadow-inner overflow-hidden">
             {imagePreview ? (
-              <div className="w-full h-full relative rounded-[20px] overflow-hidden group border border-gold-300/30">
-                <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
+              <div className="w-full h-full relative rounded-[20px] overflow-hidden group border border-gold-300/30 bg-black/5 dark:bg-white/5 flex items-center justify-center">
+                {productType === 'IMAGE' ? (
+                  <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
+                ) : (
+                  <div className="text-center p-6 flex flex-col items-center">
+                    <Box size={48} className="text-gold-500 mb-4 animate-bounce" />
+                    <p className="text-sm font-bold text-charcoal dark:text-white text-center break-all">{imageFile?.name || 'Model.glb'}</p>
+                    <p className="text-xs text-charcoal/60 dark:text-white/50 mt-1">Ready for 3D processing</p>
+                    <button 
+                      type="button"
+                      onClick={() => setIsPreviewModalOpen(true)}
+                      className="mt-4 px-4 py-2 bg-gold/10 hover:bg-gold/20 text-gold-dark rounded-xl text-[10px] font-extrabold uppercase tracking-widest transition-all"
+                    >
+                      Inspect in 3D Viewer
+                    </button>
+                  </div>
+                )}
                 <button 
                   type="button" 
                   onClick={() => { setImageFile(null); setImagePreview(''); }}
-                  className="absolute top-2.5 right-2.5 p-2 bg-black/60 hover:bg-black/85 text-white rounded-full transition-all cursor-pointer shadow"
+                  className="absolute top-2.5 right-2.5 p-2 bg-black/60 hover:bg-black/85 text-white rounded-full transition-all cursor-pointer shadow z-20"
                 >
                   <X size={14} />
                 </button>
               </div>
             ) : (
-              <label className="flex flex-col items-center justify-center cursor-pointer w-full h-full p-6 text-center">
+              <label className="flex flex-col items-center justify-center cursor-pointer w-full h-full p-6 text-center z-10">
                 <div className="p-4 bg-gold-100/50 dark:bg-white/5 text-gold-700 dark:text-gold rounded-2xl mb-3 shadow-inner">
                   <Upload size={24} />
                 </div>
-                <p className="text-sm font-semibold">Select Artwork Image</p>
-                <p className="text-xs text-stone-400 dark:text-stone-500 mt-1">PNG, JPG, JPEG up to 5MB</p>
-                <input type="file" accept="image/*" onChange={handleImageSelect} className="hidden" />
+                <p className="text-sm font-semibold">{productType === "IMAGE" ? "Select Artwork Image" : "Select .GLB/.GLTF Model"}</p>
+                <p className="text-xs text-stone-400 dark:text-stone-500 mt-1">
+                  {productType === "IMAGE" ? "PNG, JPG up to 5MB" : "GLB, GLTF up to 30MB"}
+                </p>
+                <input type="file" accept={productType === 'IMAGE' ? "image/png, image/jpeg, image/webp" : ".glb,.gltf"} onChange={handleFileSelect} className="hidden" />
               </label>
             )}
           </div>

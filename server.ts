@@ -6,6 +6,7 @@ import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import { initializeApp, getApps, App, cert } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
+import { getStorage } from "firebase-admin/storage";
 import fs from "fs";
 import { GoogleGenAI } from "@google/genai";
 
@@ -86,7 +87,7 @@ const db = getFirestore(firebaseApp, dbId);
 console.log(`Firestore connected to project: ${projectToUse}, database: ${dbId || "(default)"}`);
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT ? Number(process.env.PORT) : 5176;
 const JWT_SECRET = process.env.JWT_SECRET || "yashas_art_gallery_secret_2024";
 
 app.use(cors());
@@ -127,7 +128,8 @@ async function seedDatabase() {
           description: "A meticulously detailed handmade golden sculpture embodying modern artistic beauty.",
           stock: 5,
           tags: ["handmade", "sculpture", "gold"],
-          images: ["https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?w=800&auto=format&fit=crop&q=60"]
+          images: ["https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?w=800&auto=format&fit=crop&q=60"],
+          type: "IMAGE"
         },
         {
           id: "prod-2",
@@ -137,7 +139,42 @@ async function seedDatabase() {
           description: "An elegant oil on canvas painting featuring vibrant crimson and gold stroke work.",
           stock: 3,
           tags: ["painting", "canvas", "art"],
-          images: ["https://images.unsplash.com/photo-1579783928621-7a13d66a62d1?w=800&auto=format&fit=crop&q=60"]
+          images: ["https://images.unsplash.com/photo-1579783928621-7a13d66a62d1?w=800&auto=format&fit=crop&q=60"],
+          type: "IMAGE"
+        },
+        {
+          id: "prod-3",
+          name: "Cyberpunk Tactical Helmet",
+          price: 35000,
+          category: "Home Decor",
+          description: "An immersive, highly detailed 3D cyberpunk helmet replica. Complete with metallic surfaces, reflective visors, and intricate carbon decals, this premium model showcases React Three Fiber shadows and real-time lighting preset customisation.",
+          stock: 2,
+          tags: ["cyberpunk", "3d", "helmet", "futuristic"],
+          images: ["https://images.unsplash.com/photo-1545569341-9eb8b30979d9?w=800&auto=format&fit=crop&q=60"],
+          type: "3D",
+          modelUrl: "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/DamagedHelmet/glTF-Binary/DamagedHelmet.glb",
+          variants: [
+            { name: "Default Carbon", hex: "#1A1A1A", color: "#1A1A1A", metalness: 0.9, roughness: 0.1 },
+            { name: "Neon Gold Edition", hex: "#FFC53D", color: "#FFC53D", metalness: 0.8, roughness: 0.2 },
+            { name: "Stealth Cyan", hex: "#00F2FE", color: "#00F2FE", metalness: 0.7, roughness: 0.3 }
+          ]
+        },
+        {
+          id: "prod-4",
+          name: "Sheen Velvet Chair",
+          price: 28000,
+          category: "Home Decor",
+          description: "A premium velvet armchair featuring high-fidelity fabric textures and complex sheen shading. Perfect for testing ambient lighting presets, shadow rendering, and variant material swaps in full three-dimensional orbit controls.",
+          stock: 4,
+          tags: ["chair", "furniture", "velvet", "3d"],
+          images: ["https://images.unsplash.com/photo-1567538096630-e0c55bd6374c?w=800&auto=format&fit=crop&q=60"],
+          type: "3D",
+          modelUrl: "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/SheenChair/glTF-Binary/SheenChair.glb",
+          variants: [
+            { name: "Royal Blue Sheen", hex: "#0A2540", color: "#0A2540", roughness: 0.6 },
+            { name: "Crimson Velvet", hex: "#8B0000", color: "#8B0000", roughness: 0.7 },
+            { name: "Emerald Luxe", hex: "#004B23", color: "#004B23", roughness: 0.6 }
+          ]
         }
       ];
       for (const prod of sampleProducts) {
@@ -580,6 +617,57 @@ const isAdmin = (req: any, res: any, next: any) => {
 
 // --- ADMIN REST ENDPOINTS ---
 
+// 0. Secure File Upload to Firebase Storage
+app.post("/api/admin/upload", authenticateToken, isAdmin, async (req, res) => {
+  try {
+    const { base64Data, filename, contentType } = req.body;
+    if (!base64Data || !filename) {
+      return res.status(400).json({ error: "base64Data and filename are required" });
+    }
+
+    const buffer = Buffer.from(base64Data, "base64");
+    
+    // File size validation (Max 5MB for images, Max 30MB for 3D models)
+    const isModel = filename.toLowerCase().endsWith(".glb") || filename.toLowerCase().endsWith(".gltf");
+    const maxSize = isModel ? 30 * 1024 * 1024 : 5 * 1024 * 1024;
+    
+    if (buffer.length > maxSize) {
+      return res.status(400).json({ 
+        error: `File exceeds standard size limits. Maximum allowed is ${isModel ? '30MB' : '5MB'}.` 
+      });
+    }
+
+    // Upload to GCS Bucket
+    const bucket = getStorage(firebaseApp).bucket();
+    const uniqueFilename = `assets/${Date.now()}-${filename}`;
+    const file = bucket.file(uniqueFilename);
+
+    await file.save(buffer, {
+      metadata: {
+        contentType: contentType || (isModel ? "model/gltf-binary" : "image/jpeg"),
+      }
+    });
+
+    // Make the asset public. Fallback to a long-term signed URL if public access is restricted on this bucket
+    let publicUrl = `https://storage.googleapis.com/${bucket.name}/${uniqueFilename}`;
+    try {
+      await file.makePublic();
+    } catch (makePublicErr) {
+      console.warn("Unable to set public ACL on bucket, generating long-term signed URL instead:", makePublicErr);
+      const [signedUrl] = await file.getSignedUrl({
+        action: "read",
+        expires: "01-01-2099", // Keep it readable for decades
+      });
+      publicUrl = signedUrl;
+    }
+
+    res.json({ url: publicUrl, filename: uniqueFilename });
+  } catch (error: any) {
+    console.error("Firebase upload failed:", error.message);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // 1. List all products
 app.get("/api/admin/products", authenticateToken, isAdmin, async (req, res) => {
   try {
@@ -595,7 +683,7 @@ app.get("/api/admin/products", authenticateToken, isAdmin, async (req, res) => {
 app.post("/api/admin/products", authenticateToken, isAdmin, async (req, res) => {
   try {
     const id = Date.now().toString();
-    const { name, price, category, description, stock, tags, images } = req.body;
+    const { name, price, category, description, stock, tags, images, type, modelUrl, variants } = req.body;
     const newProduct = {
       id,
       name,
@@ -604,7 +692,10 @@ app.post("/api/admin/products", authenticateToken, isAdmin, async (req, res) => 
       description,
       stock: parseInt(stock) || 10,
       tags: Array.isArray(tags) ? tags : [],
-      images: Array.isArray(images) ? images : []
+      images: Array.isArray(images) ? images : [],
+      type: type || "IMAGE",
+      modelUrl: modelUrl || "",
+      variants: Array.isArray(variants) ? variants : []
     };
     await db.collection("products").doc(id).set(newProduct);
     res.json({ message: "Product published successfully!", product: newProduct });
