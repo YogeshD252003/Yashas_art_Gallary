@@ -1,4 +1,4 @@
-import { firestore } from '../firebase/firebaseConfig';
+import { firestore } from '../firebase/config';
 import { collection, addDoc, getDoc, doc, getDocs, deleteDoc, query, orderBy } from 'firebase/firestore';
 import { uploadFile } from '../firebase/storage';
 

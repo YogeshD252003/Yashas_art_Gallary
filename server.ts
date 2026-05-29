@@ -9,6 +9,8 @@ import { getFirestore } from "firebase-admin/firestore";
 import { getStorage } from "firebase-admin/storage";
 import fs from "fs";
 import { GoogleGenAI } from "@google/genai";
+import { sendAdminWhatsAppNotification } from "./lib/orderNotifications.js";
+import { fetchAdminPhoneNumbers } from "./lib/fetchAdminPhones.js";
 
 dotenv.config();
 
@@ -549,7 +551,8 @@ app.post("/api/auth/reset-password", async (req, res) => {
 app.get("/api/user/profile", authenticateToken, async (req: any, res) => {
   try {
     // If it's an admin user, look up in admins collection
-    if (req.user.role && (req.user.role === "SUPER_ADMIN" || req.user.role === "PRODUCT_MANAGER" || req.user.role === "ORDER_MANAGER")) {
+    const adminRoles = ["SUPER_ADMIN", "ADMIN", "PRODUCT_MANAGER", "ORDER_MANAGER"];
+    if (req.user.role && adminRoles.includes(req.user.role)) {
       const adminDoc = await db.collection("admins").doc(req.user.email).get();
       if (adminDoc.exists) {
         const data = adminDoc.data()!;
@@ -580,7 +583,8 @@ app.get("/api/user/profile", authenticateToken, async (req: any, res) => {
 app.put("/api/user/profile", authenticateToken, async (req: any, res) => {
   try {
     // If it's an admin user, update the admins collection
-    if (req.user.role && (req.user.role === "SUPER_ADMIN" || req.user.role === "PRODUCT_MANAGER" || req.user.role === "ORDER_MANAGER")) {
+    const adminRoles = ["SUPER_ADMIN", "ADMIN", "PRODUCT_MANAGER", "ORDER_MANAGER"];
+    if (req.user.role && adminRoles.includes(req.user.role)) {
       const adminDoc = await db.collection("admins").doc(req.user.email).get();
       if (adminDoc.exists) {
         const { password, email, ...updateData } = req.body;
@@ -602,12 +606,145 @@ app.put("/api/user/profile", authenticateToken, async (req: any, res) => {
   }
 });
 
+// --- PUBLIC & USER ORDER ENDPOINTS ---
+
+app.get("/api/products", async (_req, res) => {
+  try {
+    const snapshot = await db.collection("products").get();
+    const products = snapshot.docs
+      .map(doc => ({ id: doc.id, ...doc.data() }))
+      .filter((p: any) => (p.stock ?? 1) > 0);
+    res.json(products);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+const ORDER_STATUSES = ["PLACED", "CONFIRMED", "PROCESSING", "SHIPPED", "DELIVERED", "CANCELLED"];
+
+app.post("/api/orders", authenticateToken, async (req: any, res) => {
+  const { items, shippingAddress } = req.body;
+  let addr = { ...(shippingAddress || {}) };
+  if (addr.location && addr.full_name && addr.mobile_number && !addr.address_line) {
+    addr = {
+      ...addr,
+      email: addr.email || req.user.email,
+      address_line: addr.location,
+      city: addr.city || "See delivery address",
+      state: addr.state || "—",
+      pincode: addr.pincode && /^\d{6}$/.test(String(addr.pincode)) ? addr.pincode : "500001",
+    };
+  }
+  const fullLocation =
+    addr.location ||
+    [addr.address_line, addr.landmark, addr.city, addr.state, addr.pincode].filter(Boolean).join(", ");
+
+  if (
+    !items?.length ||
+    !addr.full_name ||
+    !addr.mobile_number ||
+    !fullLocation
+  ) {
+    return res.status(400).json({ error: "Items and complete shipping address are required" });
+  }
+  if (!addr.email || !addr.address_line || !addr.city || !addr.state || !addr.pincode) {
+    return res.status(400).json({ error: "Email, street address, city, state, and pincode are required for checkout" });
+  }
+  if (req.user.role && ["SUPER_ADMIN", "ADMIN", "PRODUCT_MANAGER", "ORDER_MANAGER"].includes(req.user.role)) {
+    return res.status(403).json({ error: "Admin accounts cannot place customer orders" });
+  }
+  try {
+    const orderNumber = `ORD-${Date.now().toString().slice(-8)}`;
+    const normalizedItems = items.map((item: any) => ({
+      productId: item.productId || null,
+      name: item.name,
+      price: parseFloat(item.price) || 0,
+      quantity: parseInt(item.quantity) || 1,
+      image: item.image || "",
+    }));
+    const total = normalizedItems.reduce((sum: number, item: any) => sum + item.price * item.quantity, 0);
+    const now = new Date().toISOString();
+
+    const normalizedShipping = {
+      ...addr,
+      location: fullLocation,
+    };
+
+    const orderDoc = {
+      orderNumber,
+      userId: req.user.userId,
+      userEmail: req.user.email,
+      items: normalizedItems,
+      total,
+      status: "PLACED",
+      statusHistory: [{ status: "PLACED", timestamp: now }],
+      shippingAddress: normalizedShipping,
+      created_at: now,
+      adminSeen: false,
+    };
+
+    const ref = await db.collection("orders").add(orderDoc);
+
+    for (const item of normalizedItems) {
+      if (item.productId) {
+        const prodRef = db.collection("products").doc(item.productId);
+        const prodSnap = await prodRef.get();
+        if (prodSnap.exists) {
+          const stock = prodSnap.data()?.stock ?? 0;
+          await prodRef.update({ stock: Math.max(0, stock - item.quantity) });
+        }
+      }
+    }
+
+    const adminPhones = await fetchAdminPhoneNumbers(db);
+    const notifyResult = await sendAdminWhatsAppNotification(
+      {
+        orderNumber,
+        customerName: normalizedShipping.full_name,
+        phone: normalizedShipping.mobile_number,
+        email: normalizedShipping.email,
+        place: normalizedShipping.city || normalizedShipping.state || "—",
+        deliveryAddress: fullLocation,
+        items: normalizedItems,
+        total,
+        orderTime: now,
+        geo_latitude: normalizedShipping.geo_latitude,
+        geo_longitude: normalizedShipping.geo_longitude,
+      },
+      adminPhones,
+    );
+
+    res.json({
+      orderId: ref.id,
+      orderNumber,
+      message: "Order placed successfully",
+      whatsappSent: notifyResult.sentCount > 0,
+      whatsappRecipients: notifyResult.recipients,
+      adminsNotified: notifyResult.totalRecipients,
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get("/api/user/orders", authenticateToken, async (req: any, res) => {
+  try {
+    const snapshot = await db.collection("orders").where("userId", "==", req.user.userId).get();
+    const orders = snapshot.docs
+      .map(doc => ({ id: doc.id, ...doc.data() }))
+      .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    res.json(orders);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // --- ADMIN SECURITY MIDDLEWARE ---
 const isAdmin = (req: any, res: any, next: any) => {
   if (!req.user) {
     return res.status(401).json({ error: "Unauthorized" });
   }
-  const roles = ["SUPER_ADMIN", "PRODUCT_MANAGER", "ORDER_MANAGER"];
+  const roles = ["SUPER_ADMIN", "ADMIN", "PRODUCT_MANAGER", "ORDER_MANAGER"];
   if (roles.includes(req.user.role)) {
     next();
   } else {
@@ -719,8 +856,42 @@ app.delete("/api/admin/products/:id", authenticateToken, isAdmin, async (req, re
 app.get("/api/admin/orders", authenticateToken, isAdmin, async (req, res) => {
   try {
     const snapshot = await db.collection("orders").get();
-    const orders = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    const orders = snapshot.docs
+      .map(doc => ({ id: doc.id, ...doc.data() }))
+      .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
     res.json(orders);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.patch("/api/admin/orders/mark-seen", authenticateToken, isAdmin, async (_req, res) => {
+  try {
+    const snapshot = await db.collection("orders").where("adminSeen", "==", false).get();
+    const batch = db.batch();
+    snapshot.docs.forEach((doc) => batch.update(doc.ref, { adminSeen: true }));
+    if (!snapshot.empty) await batch.commit();
+    res.json({ marked: snapshot.size });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.patch("/api/admin/orders/:id/status", authenticateToken, isAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+    if (!ORDER_STATUSES.includes(status)) {
+      return res.status(400).json({ error: "Invalid order status" });
+    }
+    const ref = db.collection("orders").doc(id);
+    const snap = await ref.get();
+    if (!snap.exists) return res.status(404).json({ error: "Order not found" });
+    const existing = snap.data()!;
+    const history = Array.isArray(existing.statusHistory) ? existing.statusHistory : [];
+    history.push({ status, timestamp: new Date().toISOString() });
+    await ref.update({ status, statusHistory: history, adminSeen: true });
+    res.json({ message: "Order status updated", status });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
@@ -758,8 +929,8 @@ app.get("/api/admin/admins", authenticateToken, isAdmin, async (req, res) => {
 app.post("/api/admin/add-admin", authenticateToken, isAdmin, async (req, res) => {
   try {
     const { fullName, email, phone, role, password } = req.body;
-    if (!fullName || !email || !role) {
-      return res.status(400).json({ error: "Full Name, Email, and Role are required" });
+    if (!fullName || !email || !role || !phone) {
+      return res.status(400).json({ error: "Full Name, Email, Mobile Number, and Role are required" });
     }
     const adminDoc = await db.collection("admins").doc(email).get();
     if (adminDoc.exists) {
@@ -880,7 +1051,7 @@ async function startServer() {
   app.use(vite.middlewares);
 
   app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on http://0.0.0.0:${PORT}`);
+    console.log(`Server running — open http://localhost:${PORT} in your browser`);
   });
 }
 

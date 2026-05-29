@@ -1,36 +1,19 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
-import { onAuthStateChanged, isAdmin } from '../firebase/auth';
+import { useAuth } from '../AuthContext';
 import { Loader2 } from 'lucide-react';
 import { motion } from 'motion/react';
 
 /**
  * AdminRouteGuard protects admin routes.
- * It checks Firebase auth state and admin custom claim.
+ * It checks the custom JWT auth state and role.
  * While loading, it shows a spinner.
  */
 const AdminRouteGuard: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [checking, setChecking] = useState(true);
-  const [allowed, setAllowed] = useState(false);
+  const { user, loading } = useAuth();
   const location = useLocation();
 
-  useEffect(() => {
-    const unsub = onAuthStateChanged(async (user) => {
-      if (user) {
-        // First try custom claim
-        const admin = await isAdmin(user);
-        // Fallback: allow specific admin email (e.g., admin@yashas.com)
-        const emailAdmin = user.email && user.email.endsWith('@yashas.com');
-        setAllowed(admin || !!emailAdmin);
-      } else {
-        setAllowed(false);
-      }
-      setChecking(false);
-    });
-    return () => unsub();
-  }, []);
-
-  if (checking) {
+  if (loading) {
     return (
       <div className="h-screen flex items-center justify-center bg-ivory dark:bg-dark-bg">
         <motion.div
@@ -44,7 +27,10 @@ const AdminRouteGuard: React.FC<{ children: React.ReactNode }> = ({ children }) 
     );
   }
 
-  if (!allowed) {
+  const allowedRoles = ["SUPER_ADMIN", "ADMIN", "PRODUCT_MANAGER", "ORDER_MANAGER"];
+  const isAllowed = user && user.role && allowedRoles.includes(user.role);
+
+  if (!isAllowed) {
     // Redirect to login if not admin or not logged in
     return <Navigate to="/login" state={{ from: location }} replace />;
   }

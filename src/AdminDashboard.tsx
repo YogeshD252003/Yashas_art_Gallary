@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import { MultiImageUploader } from './components/MultiImageUploader';
 import { Routes, Route, Link, useLocation, useNavigate } from 'react-router-dom';
+import ThemeToggleButton from './components/ThemeToggleButton';
 import { 
   LayoutDashboard, 
   PlusCircle, 
@@ -19,11 +21,17 @@ import {
   TrendingUp,
   AlertCircle,
   Box,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Bell,
+  MapPin,
+  Phone,
+  ExternalLink,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Product3DViewer } from './3d/Product3DViewer';
 import { compressImage, generateThumbnail, fileToBase64, validateFileSize } from './utils/fileHelpers';
+
+const ADMIN_ROLES = ['SUPER_ADMIN', 'ADMIN', 'PRODUCT_MANAGER', 'ORDER_MANAGER'];
 
 // --- Shared UI Components ---
 
@@ -276,35 +284,46 @@ const AddProductPage = () => {
   const [stock, setStock] = useState('10');
   const [description, setDescription] = useState('');
   const [tags, setTags] = useState('');
-  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imageFiles, setImageFiles] = useState<File[]>([]);
+  const [modelFile, setModelFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string>('');
-  
+
   const [aiLoading, setAiLoading] = useState(false);
   const [submitLoading, setSubmitLoading] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
 
-  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleModelSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     setErrorMsg('');
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
-      
-      if (productType === 'IMAGE') {
-        if (!validateFileSize(file, 5)) {
-          setErrorMsg('Image size exceeds 5MB limit.');
-          return;
-        }
-        setImageFile(file);
-        setImagePreview(URL.createObjectURL(file));
-      } else {
-        if (!validateFileSize(file, 30)) {
-          setErrorMsg('3D model size exceeds 30MB limit.');
-          return;
-        }
-        setImageFile(file);
-        setImagePreview(URL.createObjectURL(file));
+      if (!validateFileSize(file, 30)) {
+        setErrorMsg('3D model size exceeds 30MB limit.');
+        return;
       }
+      setModelFile(file);
+      setImagePreview(URL.createObjectURL(file)); 
+    }
+  };
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (productType === '3D') {
+      handleModelSelect(e);
+      return;
+    }
+    setErrorMsg('');
+    if (!e.target.files?.[0]) return;
+    const file = e.target.files[0];
+    if (!validateFileSize(file, 5)) {
+      setErrorMsg('Image size exceeds 5MB limit.');
+      return;
+    }
+    setImageFiles([file]);
+    try {
+      setImagePreview(await compressImage(file));
+    } catch {
+      setImagePreview(URL.createObjectURL(file));
     }
   };
 
@@ -344,44 +363,7 @@ const AddProductPage = () => {
     setErrorMsg('');
     try {
       const tagsArray = tags.split(',').map(t => t.trim()).filter(Boolean);
-      
-      let finalFileUrl = "";
-      let thumbnailUrl = "";
       let finalProductType = productType;
-      
-      if (imageFile) {
-        const base64Data = await fileToBase64(imageFile);
-        
-        const uploadRes = await fetch('/api/admin/upload', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
-          },
-          body: JSON.stringify({
-            fileName: imageFile.name,
-            mimeType: imageFile.type || (productType === "3D" ? "model/gltf-binary" : "image/jpeg"),
-            base64Data,
-            folder: productType === '3D' ? 'models' : 'images'
-          })
-        });
-        
-        if (!uploadRes.ok) {
-          const errData = await uploadRes.json();
-          throw new Error(errData.error || "Upload failed");
-        }
-        
-        const uploadData = await uploadRes.json();
-        finalFileUrl = uploadData.url;
-        
-        if (productType === 'IMAGE') {
-           thumbnailUrl = await generateThumbnail(imageFile, 400);
-        }
-      } else {
-        finalFileUrl = productType === 'IMAGE' 
-           ? "https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?w=800&auto=format&fit=crop&q=60"
-           : "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/DamagedHelmet/glTF-Binary/DamagedHelmet.glb";
-      }
 
       const res = await fetch('/api/admin/products', {
         method: 'POST',
@@ -396,9 +378,10 @@ const AddProductPage = () => {
           description,
           stock,
           tags: tagsArray,
-          images: productType === 'IMAGE' ? [finalFileUrl] : [thumbnailUrl || "https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?w=400&auto=format&fit=crop&q=60"],
+          images: productType === 'IMAGE' ? imageFiles.map(f => URL.createObjectURL(f)) : [], 
           type: finalProductType,
-          modelUrl: productType === '3D' ? finalFileUrl : undefined,
+          modelUrl: productType === '3D' && modelFile ? URL.createObjectURL(modelFile) : undefined,
+          published: true, 
         })
       });
 
@@ -410,7 +393,7 @@ const AddProductPage = () => {
         setStock('10');
         setDescription('');
         setTags('');
-        setImageFile(null);
+        setImageFiles([]);
         setImagePreview('');
       } else {
         const errData = await res.json();
@@ -443,14 +426,14 @@ const AddProductPage = () => {
       <div className="flex gap-2 p-1 bg-white/50 dark:bg-white/5 rounded-2xl w-max border border-gold-300/30 dark:border-white/10 shadow-inner">
         <button
           type="button"
-          onClick={() => { setProductType("IMAGE"); setImageFile(null); setImagePreview(''); }}
+          onClick={() => { setProductType("IMAGE"); setImageFiles([]); setImagePreview(''); }}
           className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all ${productType === "IMAGE" ? "bg-white dark:bg-white/10 text-charcoal dark:text-white shadow-sm border border-black/5 dark:border-white/5" : "text-charcoal/60 dark:text-white/50 hover:text-charcoal dark:hover:text-white"}`}
         >
           <ImageIcon size={16} /> 2D Image
         </button>
         <button
           type="button"
-          onClick={() => { setProductType("3D"); setImageFile(null); setImagePreview(''); }}
+          onClick={() => { setProductType("3D"); setImageFiles([]); setImagePreview(''); }}
           className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all ${productType === "3D" ? "bg-white dark:bg-white/10 text-charcoal dark:text-white shadow-sm border border-black/5 dark:border-white/5" : "text-charcoal/60 dark:text-white/50 hover:text-charcoal dark:hover:text-white"}`}
         >
           <Box size={16} /> 3D Model
@@ -485,7 +468,7 @@ const AddProductPage = () => {
                 ) : (
                   <div className="text-center p-6 flex flex-col items-center">
                     <Box size={48} className="text-gold-500 mb-4 animate-bounce" />
-                    <p className="text-sm font-bold text-charcoal dark:text-white text-center break-all">{imageFile?.name || 'Model.glb'}</p>
+                    <p className="text-sm font-bold text-charcoal dark:text-white text-center break-all">{imageFiles[0]?.name || 'Image'}</p>
                     <p className="text-xs text-charcoal/60 dark:text-white/50 mt-1">Ready for 3D processing</p>
                     <button 
                       type="button"
@@ -496,11 +479,7 @@ const AddProductPage = () => {
                     </button>
                   </div>
                 )}
-                <button 
-                  type="button" 
-                  onClick={() => { setImageFile(null); setImagePreview(''); }}
-                  className="absolute top-2.5 right-2.5 p-2 bg-black/60 hover:bg-black/85 text-white rounded-full transition-all cursor-pointer shadow z-20"
-                >
+                <button type="button" onClick={() => { setImageFiles([]); setImagePreview(''); }} className="absolute top-2.5 right-2.5 p-2 bg-black/60 hover:bg-black/85 text-white rounded-full transition-all cursor-pointer shadow z-20">
                   <X size={14} />
                 </button>
               </div>
@@ -825,22 +804,181 @@ const InventoryPage = () => {
   );
 };
 
-// 4. Orders Page (Fixed empty view matching prompt)
+// 4. Orders Page
 const OrdersPage = () => {
+  const [orders, setOrders] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchOrders = async () => {
+    try {
+      const res = await fetch('/api/admin/orders', {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+      });
+      if (res.ok) setOrders(await res.json());
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchOrders();
+    const interval = setInterval(fetchOrders, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const updateStatus = async (orderId: string, status: string) => {
+    try {
+      const res = await fetch(`/api/admin/orders/${orderId}/status`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${localStorage.getItem('token')}`,
+        },
+        body: JSON.stringify({ status }),
+      });
+      if (res.ok) fetchOrders();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const buildWhatsAppLink = (order: any) => {
+    const ship = order.shippingAddress || {};
+    const items = (order.items || [])
+      .map((i: any) => `• ${i.name} × ${i.quantity || 1}`)
+      .join('\n');
+    const msg = [
+      '🛒 New Order — Yashas Art Gallery',
+      `Order: ${order.orderNumber}`,
+      `Customer: ${ship.full_name}`,
+      `Phone: ${ship.mobile_number}`,
+      `Place: ${ship.city || ship.location}`,
+      `Address: ${ship.location}`,
+      items,
+      `Total: ₹${Number(order.total).toLocaleString('en-IN')}`,
+    ].join('\n');
+    const phone = String((import.meta as { env?: { VITE_ADMIN_WHATSAPP?: string } }).env?.VITE_ADMIN_WHATSAPP || '919900910536').replace(/\D/g, '');
+    return `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`;
+  };
+
+  const newOrders = orders.filter((o) => o.adminSeen === false && o.status === 'PLACED');
+
+  if (loading) {
+    return (
+      <div className="h-96 flex items-center justify-center">
+        <Loader2 className="animate-spin text-gold-600" size={36} />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-4xl font-serif font-bold text-charcoal dark:text-white tracking-tight">Active Orders</h1>
-        <p className="text-sm text-charcoal/60 dark:text-white/50 mt-1 font-medium">Verify, package, and dispatch orders</p>
+        <h1 className="text-4xl font-serif font-bold text-charcoal dark:text-white tracking-tight">Orders & Alerts</h1>
+        <p className="text-sm text-charcoal/60 dark:text-white/50 mt-1 font-medium">New orders appear instantly — accept, process, and deliver</p>
       </div>
 
-      <div className="glass rounded-[40px] p-12 text-center flex flex-col items-center justify-center min-h-[300px]">
-        <div className="p-4 bg-gold-50 dark:bg-white/5 rounded-full text-gold-600 mb-4">
-          <MessageSquare size={36} />
+      {newOrders.length > 0 && (
+        <div className="rounded-[2rem] border-2 border-amber-400/50 bg-amber-50/80 dark:bg-amber-500/10 p-6 space-y-4">
+          <div className="flex items-center gap-2 text-amber-800 dark:text-amber-300 font-bold">
+            <Bell size={20} className="animate-pulse" />
+            {newOrders.length} new order{newOrders.length > 1 ? 's' : ''} need your attention
+          </div>
+          {newOrders.map((order) => {
+            const ship = order.shippingAddress || {};
+            return (
+              <div key={order.id} className="glass rounded-2xl p-5 border border-amber-300/30">
+                <p className="text-xs font-bold uppercase tracking-widest text-amber-700 dark:text-amber-400 mb-2">New order alert</p>
+                <div className="grid sm:grid-cols-2 gap-4">
+                  <div>
+                    <p className="font-bold text-lg dark:text-white">{ship.full_name}</p>
+                    <p className="text-sm flex items-center gap-1 mt-1"><Phone size={14} /> {ship.mobile_number}</p>
+                    <p className="text-sm flex items-center gap-1 mt-1"><MapPin size={14} /> {ship.city || '—'} · {ship.location}</p>
+                    <p className="text-xs text-stone-500 mt-2">{new Date(order.created_at).toLocaleString()}</p>
+                  </div>
+                  <div className="flex gap-2 flex-wrap">
+                    {(order.items || []).map((item: any, idx: number) => (
+                      <div key={idx} className="text-center">
+                        {item.image && (
+                          <img src={item.image} alt="" className="w-16 h-16 rounded-xl object-cover mx-auto" />
+                        )}
+                        <p className="text-[10px] mt-1 max-w-[72px] truncate">{item.name}</p>
+                        <p className="text-[10px] font-bold">×{item.quantity || 1}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-2 mt-4">
+                  <button type="button" onClick={() => updateStatus(order.id, 'CONFIRMED')} className="px-4 py-2 rounded-full bg-emerald-600 text-white text-xs font-bold">Accept order</button>
+                  <button type="button" onClick={() => updateStatus(order.id, 'CANCELLED')} className="px-4 py-2 rounded-full bg-red-500 text-white text-xs font-bold">Reject</button>
+                  <button type="button" onClick={() => updateStatus(order.id, 'PROCESSING')} className="px-4 py-2 rounded-full bg-amber-600 text-white text-xs font-bold">Mark processing</button>
+                  <a href={buildWhatsAppLink(order)} target="_blank" rel="noreferrer" className="px-4 py-2 rounded-full bg-green-600 text-white text-xs font-bold flex items-center gap-1">
+                    WhatsApp <ExternalLink size={12} />
+                  </a>
+                </div>
+              </div>
+            );
+          })}
         </div>
-        <h3 className="text-xl font-serif font-bold text-charcoal dark:text-white">No active orders in the database yet</h3>
-        <p className="text-sm text-stone-500 mt-2 max-w-sm">Incoming custom orders and gallery purchases will appear here.</p>
-      </div>
+      )}
+
+      {orders.length === 0 ? (
+        <div className="glass rounded-[40px] p-12 text-center flex flex-col items-center justify-center min-h-[300px]">
+          <div className="p-4 bg-gold-50 dark:bg-white/5 rounded-full text-gold-600 mb-4">
+            <MessageSquare size={36} />
+          </div>
+          <h3 className="text-xl font-serif font-bold text-charcoal dark:text-white">No orders yet</h3>
+          <p className="text-sm text-stone-500 mt-2 max-w-sm">Customer purchases will appear here with images and delivery details.</p>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {orders.map((order) => {
+            const ship = order.shippingAddress || {};
+            const isNew = order.adminSeen === false && order.status === 'PLACED';
+            return (
+              <div key={order.id} className={`glass rounded-[24px] p-5 border ${isNew ? 'border-amber-400/60 ring-2 ring-amber-400/20' : 'border-gold/10'}`}>
+                <div className="flex flex-wrap justify-between gap-3 mb-3">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <p className="font-bold text-charcoal dark:text-white">{order.orderNumber}</p>
+                      {isNew && <span className="px-2 py-0.5 bg-amber-500 text-white text-[9px] font-bold rounded-full uppercase">New</span>}
+                    </div>
+                    <p className="text-xs text-stone-500">{ship.full_name} · {ship.mobile_number}</p>
+                    <p className="text-xs text-stone-500">{order.userEmail} · {new Date(order.created_at).toLocaleString()}</p>
+                  </div>
+                  <p className="font-serif font-bold text-gold-dark">₹{Number(order.total).toLocaleString('en-IN')}</p>
+                </div>
+                <div className="flex gap-3 flex-wrap mb-3">
+                  {(order.items || []).map((item: any, idx: number) => (
+                    <div key={idx} className="flex gap-2 items-center bg-white/40 dark:bg-white/5 rounded-xl p-2">
+                      {item.image && <img src={item.image} alt="" className="w-12 h-12 rounded-lg object-cover" />}
+                      <div>
+                        <p className="text-sm font-medium dark:text-white">{item.name}</p>
+                        <p className="text-xs text-stone-500">Qty {item.quantity || 1} · ₹{Number(item.price).toLocaleString('en-IN')}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-xs text-charcoal/60 dark:text-white/50 mb-3 flex items-start gap-1">
+                  <MapPin size={14} className="shrink-0 mt-0.5" /> {ship.location}
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <button type="button" onClick={() => updateStatus(order.id, 'CONFIRMED')} className="px-3 py-1.5 rounded-full text-[10px] font-bold uppercase bg-emerald-600 text-white">Accept</button>
+                  <button type="button" onClick={() => updateStatus(order.id, 'CANCELLED')} className="px-3 py-1.5 rounded-full text-[10px] font-bold uppercase bg-red-500 text-white">Reject</button>
+                  <button type="button" onClick={() => updateStatus(order.id, 'PROCESSING')} className="px-3 py-1.5 rounded-full text-[10px] font-bold uppercase bg-amber-600 text-white">Processing</button>
+                  <button type="button" onClick={() => updateStatus(order.id, 'DELIVERED')} className="px-3 py-1.5 rounded-full text-[10px] font-bold uppercase bg-gold-dark text-white">Delivered</button>
+                  <a href={buildWhatsAppLink(order)} target="_blank" rel="noreferrer" className="px-3 py-1.5 rounded-full text-[10px] font-bold uppercase bg-green-600 text-white flex items-center gap-1">
+                    WhatsApp
+                  </a>
+                </div>
+                <p className="text-[10px] mt-3 uppercase tracking-wider text-charcoal/40">Status: <strong>{order.status}</strong></p>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 };
@@ -1130,13 +1268,15 @@ const ManageAdminsPage = () => {
                     required
                   />
                   <DashboardInput 
-                    label="Mobile Number"
+                    label="Mobile Number (WhatsApp orders)"
                     type="tel"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
                     placeholder="9900910536"
+                    required
                   />
                 </div>
+                <p className="text-xs text-stone-500 -mt-2">Each admin with a valid mobile number receives automatic WhatsApp alerts on new orders.</p>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <DashboardInput 
@@ -1289,8 +1429,7 @@ const checkAuthSync = (): { authenticating: boolean; authorized: boolean } => {
     const parts = token.split('.');
     if (parts.length === 3) {
       const payload = JSON.parse(atob(parts[1]));
-      const validRoles = ["SUPER_ADMIN", "PRODUCT_MANAGER", "ORDER_MANAGER"];
-      if (payload && validRoles.includes(payload.role)) {
+      if (payload && ADMIN_ROLES.includes(payload.role)) {
         return { authenticating: false, authorized: true };
       }
     }
@@ -1319,8 +1458,7 @@ const AdminDashboard = () => {
       const parts = token.split('.');
       if (parts.length === 3) {
         const payload = JSON.parse(atob(parts[1]));
-        const validRoles = ["SUPER_ADMIN", "PRODUCT_MANAGER", "ORDER_MANAGER"];
-        if (payload && validRoles.includes(payload.role)) {
+        if (payload && ADMIN_ROLES.includes(payload.role)) {
           setAuthorized(true);
         } else {
           console.warn("Invalid role claim:", payload.role);
@@ -1418,19 +1556,17 @@ const AdminDashboard = () => {
           </motion.div>
         )}
       </AnimatePresence>
-
-      {/* Main Content Area */}
       <main className="flex-1 p-6 md:p-12 overflow-y-auto max-w-6xl mx-auto w-full min-h-[calc(100vh-64px)] z-10">
-        <Routes>
-          <Route path="" element={<OverviewPage />} />
-          <Route path="add-product" element={<AddProductPage />} />
-          <Route path="manage-products" element={<InventoryPage />} />
-          <Route path="orders" element={<OrdersPage />} />
-          <Route path="customers" element={<CustomersPage />} />
-          <Route path="admins" element={<ManageAdminsPage />} />
-          <Route path="analytics" element={<AnalyticsPage />} />
-        </Routes>
-      </main>
+  <Routes>
+    <Route path="" element={<OverviewPage />} />
+    <Route path="add-product" element={<AddProductPage />} />
+    <Route path="manage-products" element={<InventoryPage />} />
+    <Route path="orders" element={<OrdersPage />} />
+    <Route path="customers" element={<CustomersPage />} />
+    <Route path="admins" element={<ManageAdminsPage />} />
+    <Route path="analytics" element={<AnalyticsPage />} />
+  </Routes>
+</main>
     </div>
   );
 };

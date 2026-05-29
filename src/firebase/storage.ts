@@ -1,4 +1,4 @@
-import { storage } from './firebaseConfig';
+import { storage } from './config';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { compressImage } from '../utils/fileHelpers';
 

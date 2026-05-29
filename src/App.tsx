@@ -1,11 +1,19 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate, Link, useNavigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, Link, useNavigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './AuthContext';
 import { WishlistProvider, useWishlist, ArtPiece } from './WishlistContext';
-import { LogOut, User as UserIcon, Heart, ShoppingBag, MapPin, Phone, Mail, ChevronRight, Lock, Eye, EyeOff, Loader2, ShieldCheck, Clock, History, Palette, Sun, Moon, Trash2 } from 'lucide-react';
+import { CartProvider, useCart } from './CartContext';
+import { LogOut, User as UserIcon, Heart, ShoppingBag, MapPin, Phone, Mail, ChevronRight, Lock, Eye, EyeOff, Loader2, ShieldCheck, Clock, History, Palette, Sun, Moon, Trash2, Package } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { Toaster } from 'react-hot-toast';
 import { FEATURED_ARTWORKS } from './constants/artPieces';
 import AdminDashboard from './AdminDashboard';
+import { UserOrdersPanel } from './components/UserOrdersPanel';
+import { PlaceOrderModal, OrderItemInput, parsePriceValue } from './components/PlaceOrderModal';
+import { ProductCard } from './components/ProductCard';
+import { OrderProcessGuide } from './components/OrderProcessGuide';
+import { CartPage } from './pages/CartPage';
+import { CheckoutPage } from './pages/CheckoutPage';
 
 // --- Theme Context ---
 
@@ -57,6 +65,7 @@ const Navbar = () => {
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const { wishlist } = useWishlist();
+  const { itemCount } = useCart();
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = React.useState(false);
 
@@ -72,6 +81,12 @@ const Navbar = () => {
         {/* Desktop Nav */}
         <div className="hidden md:flex items-center gap-6">
           <Link to="/" className="text-charcoal dark:text-white/80 font-medium hover:text-gold-dark transition-colors">Home</Link>
+          <Link to="/cart" className="relative text-charcoal dark:text-white/80 hover:text-gold-dark transition-colors">
+            <ShoppingBag size={22} />
+            {itemCount > 0 && (
+              <span className="absolute -top-1 -right-1 bg-gold-dark text-white text-[10px] w-4 h-4 rounded-full flex items-center justify-center font-bold">{itemCount}</span>
+            )}
+          </Link>
           <Link to="/wishlist" className="relative text-charcoal dark:text-white/80 hover:text-gold-dark transition-colors">
             <Heart size={22} className={wishlist.length > 0 ? "fill-gold-dark text-gold-dark" : ""} />
             {wishlist.length > 0 && (
@@ -99,6 +114,12 @@ const Navbar = () => {
 
         {/* Mobile: icons + hamburger */}
         <div className="flex md:hidden items-center gap-3">
+          <Link to="/cart" className="relative text-charcoal dark:text-white/80">
+            <ShoppingBag size={20} />
+            {itemCount > 0 && (
+              <span className="absolute -top-1 -right-1 bg-gold-dark text-white text-[9px] w-4 h-4 rounded-full flex items-center justify-center font-bold">{itemCount}</span>
+            )}
+          </Link>
           <Link to="/wishlist" className="relative text-charcoal dark:text-white/80">
             <Heart size={20} className={wishlist.length > 0 ? "fill-gold-dark text-gold-dark" : ""} />
             {wishlist.length > 0 && (
@@ -120,6 +141,7 @@ const Navbar = () => {
       {menuOpen && (
         <div className="md:hidden bg-ivory/95 dark:bg-dark-bg/95 backdrop-blur-md border-t border-gold/20 dark:border-white/10 px-6 py-4 flex flex-col gap-4">
           <Link to="/" onClick={() => setMenuOpen(false)} className="text-charcoal dark:text-white font-medium hover:text-gold-dark transition-colors py-2 border-b border-gold/10">Home</Link>
+          <Link to="/cart" onClick={() => setMenuOpen(false)} className="text-charcoal dark:text-white font-medium hover:text-gold-dark py-2 border-b border-gold/10">Cart ({itemCount})</Link>
           {user ? (
             <>
               <Link to="/dashboard" onClick={() => setMenuOpen(false)} className="flex items-center gap-2 text-charcoal dark:text-white font-medium hover:text-gold-dark py-2 border-b border-gold/10">
@@ -145,7 +167,48 @@ const Navbar = () => {
 
 const Home = () => {
   const { user } = useAuth();
-  const { addToWishlist, removeFromWishlist, isInWishlist } = useWishlist();
+  const navigate = useNavigate();
+  const [catalogProducts, setCatalogProducts] = React.useState<any[]>([]);
+  const [orderItem, setOrderItem] = React.useState<OrderItemInput | null>(null);
+  const [orderModalOpen, setOrderModalOpen] = React.useState(false);
+  const [orderSuccess, setOrderSuccess] = React.useState('');
+
+  React.useEffect(() => {
+    fetch('/api/products')
+      .then(r => r.ok ? r.json() : [])
+      .then(setCatalogProducts)
+      .catch(() => setCatalogProducts([]));
+  }, []);
+
+  const handleBuyNow = (item: OrderItemInput) => {
+    if (!user) {
+      navigate('/login');
+      return;
+    }
+    setOrderItem(item);
+    setOrderModalOpen(true);
+  };
+
+  const galleryItems = catalogProducts.length > 0
+    ? catalogProducts.map((p) => ({
+        id: p.id,
+        title: p.name,
+        artist: p.category || 'Gallery',
+        price: `₹${Number(p.price).toLocaleString('en-IN')}`,
+        numericPrice: Number(p.price),
+        image: p.images?.[0] || '',
+        category: p.category,
+        description: p.description,
+        stock: p.stock,
+        productId: p.id,
+      }))
+    : FEATURED_ARTWORKS.map((a) => ({
+        ...a,
+        numericPrice: parsePriceValue(a.price),
+        productId: undefined as string | undefined,
+        description: 'Handcrafted gallery piece',
+        stock: 5,
+      }));
   
   return (
     <div className="pt-24 sm:pt-32 px-4 sm:px-6 min-h-screen pb-20 relative overflow-hidden">
@@ -167,6 +230,12 @@ const Home = () => {
           Handcrafted treasures, personalized for your most precious moments. 
           Step into a world where every masterpiece tells a beautiful story.
         </p>
+
+        {orderSuccess && (
+          <div className="mb-6 p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl text-emerald-700 dark:text-emerald-400 text-sm font-medium max-w-xl mx-auto">
+            {orderSuccess} <Link to="/dashboard" className="underline font-bold ml-1">View orders</Link>
+          </div>
+        )}
         
         {user ? (
           <div className="flex justify-center gap-4">
@@ -185,38 +254,19 @@ const Home = () => {
             Featured <span className="text-gradient-gold">Artworks</span>
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-8">
-            {FEATURED_ARTWORKS.map((artwork) => (
-              <motion.div 
+            {galleryItems.map((artwork) => (
+              <ProductCard
                 key={artwork.id}
-                whileHover={{ y: -10, scale: 1.01 }}
-                className="glass group rounded-[1.5rem] sm:rounded-[2.5rem] overflow-hidden border border-gold-300/20 dark:border-white/5 hover:border-gold-500/40 dark:hover:border-gold/30 transition-all duration-300"
-              >
-                <div className="relative aspect-[4/5] overflow-hidden">
-                  <img src={artwork.image} alt={artwork.title} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex items-end p-4 sm:p-6">
-                    <div>
-                      <span className="text-[10px] text-white/70 uppercase tracking-widest font-bold">{artwork.category}</span>
-                      <h4 className="text-lg sm:text-xl text-white font-serif italic">{artwork.title}</h4>
-                    </div>
-                  </div>
-                  <button 
-                    onClick={() => isInWishlist(artwork.id) ? removeFromWishlist(artwork.id) : addToWishlist(artwork)}
-                    className={`absolute top-3 right-3 w-9 h-9 rounded-full flex items-center justify-center backdrop-blur-md transition-all ${isInWishlist(artwork.id) ? 'bg-red-500 text-white' : 'bg-white/20 text-white hover:bg-white/40'}`}
-                  >
-                    <Heart size={18} className={isInWishlist(artwork.id) ? "fill-current" : ""} />
-                  </button>
-                </div>
-                <div className="p-4 sm:p-6 flex justify-between items-center">
-                  <div>
-                    <p className="text-xs text-charcoal/70 dark:text-white/60 lowercase italic">Artist</p>
-                    <p className="font-bold text-sm dark:text-white/80">{artwork.artist}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm font-serif font-bold text-gold-dark">{artwork.price}</p>
-                    <button className="text-[10px] uppercase font-bold tracking-widest text-charcoal/65 dark:text-white/50 hover:text-gold-dark transition-colors">Details</button>
-                  </div>
-                </div>
-              </motion.div>
+                product={artwork}
+                onBuyNow={() =>
+                  handleBuyNow({
+                    productId: artwork.productId,
+                    name: artwork.title,
+                    price: artwork.numericPrice,
+                    image: artwork.image,
+                  })
+                }
+              />
             ))}
           </div>
         </div>
@@ -241,6 +291,16 @@ const Home = () => {
           ))}
         </div>
       </motion.div>
+
+      <PlaceOrderModal
+        open={orderModalOpen}
+        onClose={() => { setOrderModalOpen(false); setOrderItem(null); }}
+        item={orderItem}
+        onSuccess={(orderNumber) => {
+          setOrderSuccess(`Order ${orderNumber} placed successfully!`);
+          setTimeout(() => setOrderSuccess(''), 8000);
+        }}
+      />
     </div>
   );
 };
@@ -286,7 +346,8 @@ const LoginPage = () => {
       if (res.ok) {
         login(data.token, data.userId);
         const decoded = decodeToken(data.token);
-        if (decoded && decoded.role && (decoded.role.includes('ADMIN') || decoded.role === 'PRODUCT_MANAGER' || decoded.role === 'ORDER_MANAGER')) {
+        const adminRoles = ['SUPER_ADMIN', 'ADMIN', 'PRODUCT_MANAGER', 'ORDER_MANAGER'];
+        if (decoded?.role && adminRoles.includes(decoded.role)) {
           navigate('/admin');
         } else {
           navigate('/');
@@ -522,15 +583,15 @@ const RegisterPage = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (res.ok) {
         login(data.token, data.userId);
         navigate('/dashboard');
       } else {
-        setError(data.error);
+        setError(data.error || `Registration failed (${res.status}). Make sure the server is running with: npm run dev`);
       }
     } catch (err) {
-      setError('Registration failed. Please check your connection.');
+      setError('Cannot reach the API server. Stop other dev servers, then run: npm run dev');
     } finally {
       setLoading(false);
     }
@@ -652,7 +713,23 @@ const RegisterPage = () => {
 
 const WishlistPage = () => {
     const { wishlist, removeFromWishlist } = useWishlist();
+    const { user } = useAuth();
     const navigate = useNavigate();
+    const [orderItem, setOrderItem] = React.useState<OrderItemInput | null>(null);
+    const [orderModalOpen, setOrderModalOpen] = React.useState(false);
+
+    const handleBuyNow = (artwork: ArtPiece) => {
+        if (!user) {
+            navigate('/login');
+            return;
+        }
+        setOrderItem({
+            name: artwork.title,
+            price: parsePriceValue(artwork.price),
+            image: artwork.image,
+        });
+        setOrderModalOpen(true);
+    };
 
     return (
         <div className="pt-32 px-6 flex justify-center pb-20">
@@ -698,9 +775,15 @@ const WishlistPage = () => {
                                             <p className="text-xs text-charcoal/75 dark:text-white/60 lowercase italic">Artist</p>
                                             <p className="font-bold text-sm dark:text-white/80">{artwork.artist}</p>
                                         </div>
-                                        <div className="text-right">
+                                        <div className="text-right flex flex-col items-end gap-1.5">
                                             <p className="text-sm font-serif font-bold text-gold-dark">{artwork.price}</p>
-                                            <button className="text-[10px] uppercase font-bold tracking-widest text-charcoal/65 dark:text-white/50 hover:text-gold-dark transition-colors">Details</button>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleBuyNow(artwork)}
+                                                className="text-[10px] uppercase font-bold tracking-widest bg-gold-dark/10 hover:bg-gold-dark text-gold-dark hover:text-white px-3 py-1.5 rounded-full transition-all"
+                                            >
+                                                Buy Now
+                                            </button>
                                         </div>
                                     </div>
                                 </motion.div>
@@ -719,6 +802,13 @@ const WishlistPage = () => {
                     </div>
                 )}
             </div>
+
+            <PlaceOrderModal
+                open={orderModalOpen}
+                onClose={() => { setOrderModalOpen(false); setOrderItem(null); }}
+                item={orderItem}
+                onSuccess={() => navigate('/dashboard')}
+            />
         </div>
     );
 };
@@ -726,7 +816,10 @@ const WishlistPage = () => {
 const DashboardPage = () => {
     const { user, token, logout, loading: authLoading } = useAuth();
     const { wishlist } = useWishlist();
+    const { itemCount } = useCart();
     const navigate = useNavigate();
+    const routerLocation = useLocation();
+    const orderPlaced = (routerLocation.state as { orderPlaced?: string } | null)?.orderPlaced;
     const [loginHistory, setLoginHistory] = React.useState<any[]>([]);
     const [isEditModalOpen, setIsEditModalOpen] = React.useState(false);
     const [editForm, setEditForm] = React.useState({
@@ -735,6 +828,7 @@ const DashboardPage = () => {
         age: ''
     });
     const [updateLoading, setUpdateLoading] = React.useState(false);
+    const [orderCount, setOrderCount] = React.useState(0);
 
     React.useEffect(() => {
         if (user) {
@@ -745,6 +839,24 @@ const DashboardPage = () => {
             });
         }
     }, [user]);
+
+    React.useEffect(() => {
+        const fetchOrderCount = async () => {
+            if (!token) return;
+            try {
+                const res = await fetch('/api/user/orders', {
+                    headers: { Authorization: `Bearer ${token}` },
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    setOrderCount(data.length);
+                }
+            } catch {
+                /* ignore */
+            }
+        };
+        fetchOrderCount();
+    }, [token]);
 
     const handleUpdateProfile = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -873,16 +985,40 @@ const DashboardPage = () => {
 
                 {/* Dashboard Main Content */}
                 <div className="lg:col-span-2 space-y-8">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-charcoal dark:text-white font-medium">
-                        <div className="glass p-8 rounded-[2.5rem] bg-gradient-to-br from-white/40 to-gold/10 dark:from-white/5 dark:to-white/10 border border-gold-300/20 dark:border-white/5">
-                            <h4 className="text-charcoal/60 dark:text-white/50 text-[10px] font-bold uppercase tracking-widest mb-2">My Art Collection</h4>
-                            <p className="text-4xl font-serif dark:text-white font-bold text-charcoal">12 <span className="text-sm text-charcoal/60 dark:text-white/50 lowercase italic">Items</span></p>
+                    {orderPlaced && (
+                        <div className="p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl text-emerald-700 dark:text-emerald-400 text-sm font-medium">
+                            Order <strong>{orderPlaced}</strong> confirmed! Track progress below.
                         </div>
+                    )}
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-charcoal dark:text-white font-medium">
+                        <div className="glass p-8 rounded-[2.5rem] bg-gradient-to-br from-white/40 to-gold/10 dark:from-white/5 dark:to-white/10 border border-gold-300/20 dark:border-white/5">
+                            <h4 className="text-charcoal/60 dark:text-white/50 text-[10px] font-bold uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                                <Package size={12} /> My Orders
+                            </h4>
+                            <p className="text-4xl font-serif dark:text-white font-bold text-charcoal">
+                                {orderCount.toString().padStart(2, '0')}{' '}
+                                <span className="text-sm text-charcoal/60 dark:text-white/50 lowercase italic">Total</span>
+                            </p>
+                        </div>
+                        <Link to="/cart" className="glass p-8 rounded-[2.5rem] bg-gradient-to-br from-white/40 to-gold/10 dark:from-white/5 dark:to-white/10 block hover:scale-[1.02] transition-transform border border-gold-300/20 dark:border-white/5">
+                            <h4 className="text-charcoal/60 dark:text-white/50 text-[10px] font-bold uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                                <ShoppingBag size={12} /> Cart
+                            </h4>
+                            <p className="text-4xl font-serif dark:text-white font-bold text-charcoal">
+                                {itemCount.toString().padStart(2, '0')}{' '}
+                                <span className="text-sm text-charcoal/60 dark:text-white/50 lowercase italic">Items</span>
+                            </p>
+                        </Link>
                         <Link to="/wishlist" className="glass p-8 rounded-[2.5rem] bg-gradient-to-br from-white/40 to-gold/10 dark:from-white/5 dark:to-white/10 block hover:scale-[1.02] transition-transform border border-gold-300/20 dark:border-white/5">
                             <h4 className="text-charcoal/60 dark:text-white/50 text-[10px] font-bold uppercase tracking-widest mb-2">My Wishlist</h4>
                             <p className="text-4xl font-serif dark:text-white font-bold text-charcoal">{wishlist.length.toString().padStart(2, '0')} <span className="text-sm text-charcoal/60 dark:text-white/50 lowercase italic">Saved</span></p>
                         </Link>
                     </div>
+
+                    <OrderProcessGuide />
+
+                    <UserOrdersPanel token={token} />
 
                     {wishlist.length > 0 && (
                         <div className="glass p-8 rounded-[2.5rem]">
@@ -904,34 +1040,6 @@ const DashboardPage = () => {
                             </div>
                         </div>
                     )}
-
-                    <div className="glass p-8 rounded-[2.5rem]">
-                        <div className="flex justify-between items-center mb-6">
-                            <h3 className="text-2xl italic dark:text-white font-bold">Active Orders</h3>
-                            <span className="text-xs text-charcoal/65 dark:text-white/55 uppercase font-bold tracking-widest text-[10px]">Processing</span>
-                        </div>
-                        <div className="space-y-4">
-                            {[
-                                { id: 'ORD-772', item: 'Golden Hour Glass', status: 'Shipped', date: 'May 15, 2024' },
-                                { id: 'ORD-891', item: 'Custom Wood Frame', status: 'Processing', date: 'May 17, 2024' }
-                            ].map(order => (
-                                <div key={order.id} className="flex items-center justify-between p-4 bg-white/40 dark:bg-white/5 rounded-2xl border border-gold/10">
-                                    <div className="flex items-center gap-4">
-                                        <div className="w-10 h-10 bg-gold/10 rounded-full flex items-center justify-center text-gold-dark">
-                                            <ShoppingBag size={18} />
-                                        </div>
-                                        <div>
-                                            <p className="font-bold text-sm dark:text-white/90">{order.item}</p>
-                                            <p className="text-[10px] text-charcoal/65 dark:text-white/55 truncate max-w-[100px]">{order.id} • {order.date}</p>
-                                        </div>
-                                    </div>
-                                    <span className={`px-2 py-1 rounded-full text-[9px] font-bold uppercase tracking-wider ${order.status === 'Shipped' ? 'bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-400' : 'bg-gold/10 text-gold-dark'}`}>
-                                        {order.status}
-                                    </span>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
 
                     <div className="glass p-8 rounded-[2.5rem]">
                         <h3 className="text-2xl italic mb-6 flex items-center gap-2 dark:text-white/90">
@@ -1046,8 +1154,10 @@ const App = () => {
     <BrowserRouter>
       <AuthProvider>
         <WishlistProvider>
+          <CartProvider>
           <ThemeProvider>
             <div className="min-h-screen font-sans">
+              <Toaster position="top-center" toastOptions={{ className: 'text-sm font-medium' }} />
               <Navbar />
               <main>
                 <Routes>
@@ -1056,7 +1166,10 @@ const App = () => {
                   <Route path="/login" element={<LoginPage />} />
                   <Route path="/register" element={<RegisterPage />} />
                   <Route path="/dashboard" element={<DashboardPage />} />
+                  <Route path="/cart" element={<CartPage />} />
+                  <Route path="/checkout" element={<CheckoutPage />} />
                   <Route path="/wishlist" element={<WishlistPage />} />
+                  <Route path="/admin-login" element={<Navigate to="/login" replace />} />
                   <Route path="/admin/*" element={<AdminDashboard />} />
                   <Route path="*" element={<Navigate to="/" />} />
                 </Routes>
@@ -1074,6 +1187,7 @@ const App = () => {
               </footer>
             </div>
           </ThemeProvider>
+          </CartProvider>
         </WishlistProvider>
       </AuthProvider>
     </BrowserRouter>
