@@ -127,9 +127,17 @@ export const CheckoutPage: React.FC = () => {
         quantity: i.quantity,
         image: i.image,
       }));
-      const { orderNumber } = await placeOrder(token, orderItems, shippingAddress);
+      const { orderNumber, emailSent } = await placeOrder(
+        token,
+        orderItems,
+        shippingAddress,
+        user?.email,
+      );
       clearCart();
       toast.success(`Order ${orderNumber} confirmed!`);
+      if (emailSent) {
+        toast.success('Admin notified by email');
+      }
       navigate('/dashboard', { state: { orderPlaced: orderNumber } });
     } catch (e: any) {
       toast.error(e.message || 'Could not place order');

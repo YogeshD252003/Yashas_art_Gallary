@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, Loader2, MapPin, Phone, Package } from 'lucide-react';
 import { useAuth } from '../AuthContext';
+import { placeOrder } from '../services/orderService';
+import type { ShippingAddress } from '../types/commerce';
 
 export interface OrderItemInput {
   productId?: string;
@@ -30,6 +32,7 @@ export const PlaceOrderModal: React.FC<PlaceOrderModalProps> = ({ open, onClose,
   const [quantity, setQuantity] = useState(1);
   const [address, setAddress] = useState({
     full_name: '',
+    email: '',
     mobile_number: '',
     location: '',
   });
@@ -38,6 +41,7 @@ export const PlaceOrderModal: React.FC<PlaceOrderModalProps> = ({ open, onClose,
     if (user && open) {
       setAddress({
         full_name: user.full_name || user.fullName || '',
+        email: user.email || '',
         mobile_number: user.mobile_number || '',
         location: user.location || '',
       });
@@ -65,32 +69,31 @@ export const PlaceOrderModal: React.FC<PlaceOrderModalProps> = ({ open, onClose,
     setLoading(true);
     setError('');
     try {
-      const res = await fetch('/api/orders', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          items: [{
-            productId: item.productId,
-            name: item.name,
-            price: unitPrice,
-            quantity,
-            image: item.image,
-          }],
-          shippingAddress: address,
-        }),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        onSuccess?.(data.orderNumber);
-        onClose();
-      } else {
-        setError(data.error || 'Failed to place order.');
-      }
-    } catch {
-      setError('Could not reach the server. Run npm run dev.');
+      const shippingAddress: ShippingAddress = {
+        full_name: address.full_name,
+        email: address.email || user?.email || '',
+        mobile_number: address.mobile_number,
+        address_line: address.location,
+        city: user?.location?.split(',')[0]?.trim() || 'See delivery address',
+        state: '—',
+        pincode: '500001',
+        location: address.location,
+      };
+      const { orderNumber } = await placeOrder(
+        token,
+        [{
+          productId: item.productId,
+          name: item.name,
+          price: unitPrice,
+          quantity,
+          image: item.image,
+        }],
+        shippingAddress,
+      );
+      onSuccess?.(orderNumber);
+      onClose();
+    } catch (err: any) {
+      setError(err.message || 'Failed to place order.');
     } finally {
       setLoading(false);
     }
@@ -149,6 +152,14 @@ export const PlaceOrderModal: React.FC<PlaceOrderModalProps> = ({ open, onClose,
                   placeholder="Full name"
                   value={address.full_name}
                   onChange={(e) => setAddress({ ...address, full_name: e.target.value })}
+                  required
+                />
+                <input
+                  type="email"
+                  className="input-field"
+                  placeholder="Email"
+                  value={address.email}
+                  onChange={(e) => setAddress({ ...address, email: e.target.value })}
                   required
                 />
                 <div className="relative">
