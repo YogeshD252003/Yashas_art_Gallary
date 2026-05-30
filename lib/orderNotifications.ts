@@ -3,9 +3,16 @@ export interface OrderNotificationPayload {
   customerName: string;
   phone: string;
   email?: string;
+  userAccountEmail?: string;
   place: string;
   deliveryAddress: string;
-  items: Array<{ name: string; quantity: number; image?: string; price: number }>;
+  addressLine?: string;
+  city?: string;
+  state?: string;
+  pincode?: string;
+  landmark?: string;
+  orderNotes?: string;
+  items: Array<{ name: string; quantity: number; image?: string; price: number; productId?: string | null }>;
   total: number;
   orderTime: string;
   geo_latitude?: number | null;

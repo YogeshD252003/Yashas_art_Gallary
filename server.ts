@@ -11,6 +11,8 @@ import fs from "fs";
 import { GoogleGenAI } from "@google/genai";
 import { sendAdminWhatsAppNotification } from "./lib/orderNotifications.js";
 import { fetchAdminPhoneNumbers } from "./lib/fetchAdminPhones.js";
+import { sendAdminOrderEmailNotification } from "./lib/emailNotifications.js";
+import { fetchAdminEmails } from "./lib/fetchAdminEmails.js";
 
 dotenv.config();
 
@@ -696,23 +698,35 @@ app.post("/api/orders", authenticateToken, async (req: any, res) => {
       }
     }
 
-    const adminPhones = await fetchAdminPhoneNumbers(db);
-    const notifyResult = await sendAdminWhatsAppNotification(
-      {
-        orderNumber,
-        customerName: normalizedShipping.full_name,
-        phone: normalizedShipping.mobile_number,
-        email: normalizedShipping.email,
-        place: normalizedShipping.city || normalizedShipping.state || "—",
-        deliveryAddress: fullLocation,
-        items: normalizedItems,
-        total,
-        orderTime: now,
-        geo_latitude: normalizedShipping.geo_latitude,
-        geo_longitude: normalizedShipping.geo_longitude,
-      },
-      adminPhones,
-    );
+    const orderNotifyPayload = {
+      orderNumber,
+      customerName: normalizedShipping.full_name,
+      phone: normalizedShipping.mobile_number,
+      email: normalizedShipping.email,
+      userAccountEmail: req.user.email,
+      place: normalizedShipping.city || normalizedShipping.state || "—",
+      deliveryAddress: fullLocation,
+      addressLine: normalizedShipping.address_line,
+      city: normalizedShipping.city,
+      state: normalizedShipping.state,
+      pincode: normalizedShipping.pincode,
+      landmark: normalizedShipping.landmark,
+      orderNotes: normalizedShipping.order_notes,
+      items: normalizedItems,
+      total,
+      orderTime: now,
+      geo_latitude: normalizedShipping.geo_latitude,
+      geo_longitude: normalizedShipping.geo_longitude,
+    };
+
+    const [adminPhones, adminEmails] = await Promise.all([
+      fetchAdminPhoneNumbers(db),
+      fetchAdminEmails(db),
+    ]);
+    const [notifyResult, emailResult] = await Promise.all([
+      sendAdminWhatsAppNotification(orderNotifyPayload, adminPhones),
+      sendAdminOrderEmailNotification(orderNotifyPayload, adminEmails),
+    ]);
 
     res.json({
       orderId: ref.id,
@@ -721,6 +735,9 @@ app.post("/api/orders", authenticateToken, async (req: any, res) => {
       whatsappSent: notifyResult.sentCount > 0,
       whatsappRecipients: notifyResult.recipients,
       adminsNotified: notifyResult.totalRecipients,
+      emailSent: emailResult.sent,
+      emailRecipients: emailResult.recipients,
+      emailError: emailResult.error,
     });
   } catch (error: any) {
     res.status(500).json({ error: error.message });

@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>New Order — Yashas Art Gallery</title>
+</head>
+<body style="margin:0;padding:0;background:#1a1a1a;font-family:Georgia,serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#1a1a1a;padding:32px 16px;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="background:#252525;border-radius:16px;overflow:hidden;border:1px solid #c9a227;">
+          <tr>
+            <td style="background:linear-gradient(135deg,#c9a227,#8b6914);padding:24px;text-align:center;">
+              <h1 style="margin:0;color:#fff;font-size:24px;">YASHAS ART GALLERY</h1>
+              <p style="margin:8px 0 0;color:#fff9e6;">New Order {{order_number}}</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:28px;color:#e8e8e8;">
+
+              <h3 style="color:#c9a227;margin:0 0 12px;">Customer details</h3>
+              <table width="100%" style="background:#1a1a1a;border-radius:8px;margin-bottom:20px;">
+                <tr>
+                  <td style="color:#999;padding:10px 12px;width:130px;">Name</td>
+                  <td style="color:#fff;padding:10px 12px;"><strong>{{customer_name}}</strong></td>
+                </tr>
+                <tr>
+                  <td style="color:#999;padding:10px 12px;">Phone</td>
+                  <td style="color:#fff;padding:10px 12px;"><strong>{{customer_phone}}</strong></td>
+                </tr>
+                <tr>
+                  <td style="color:#999;padding:10px 12px;">Email</td>
+                  <td style="color:#fff;padding:10px 12px;">{{customer_email}}</td>
+                </tr>
+              </table>
+
+              <h3 style="color:#c9a227;margin:0 0 12px;">Delivery address</h3>
+              <table width="100%" style="background:#1a1a1a;border-radius:8px;margin-bottom:20px;">
+                <tr>
+                  <td style="color:#999;padding:10px 12px;width:130px;">Street</td>
+                  <td style="color:#fff;padding:10px 12px;">{{street_address}}</td>
+                </tr>
+                <tr>
+                  <td style="color:#999;padding:10px 12px;">Landmark</td>
+                  <td style="color:#fff;padding:10px 12px;">{{landmark}}</td>
+                </tr>
+                <tr>
+                  <td style="color:#999;padding:10px 12px;">City</td>
+                  <td style="color:#fff;padding:10px 12px;">{{city}}</td>
+                </tr>
+                <tr>
+                  <td style="color:#999;padding:10px 12px;">State</td>
+                  <td style="color:#fff;padding:10px 12px;">{{state}}</td>
+                </tr>
+                <tr>
+                  <td style="color:#999;padding:10px 12px;">Pincode</td>
+                  <td style="color:#fff;padding:10px 12px;">{{pincode}}</td>
+                </tr>
+                <tr>
+                  <td style="color:#999;padding:10px 12px;">Full address</td>
+                  <td style="color:#fff;padding:10px 12px;"><strong>{{delivery_address}}</strong></td>
+                </tr>
+                <tr>
+                  <td style="color:#999;padding:10px 12px;">Notes</td>
+                  <td style="color:#fff;padding:10px 12px;">{{order_notes}}</td>
+                </tr>
+              </table>
+
+              <p style="color:#999;margin:0 0 4px;">Order time</p>
+              <p style="color:#fff;margin:0 0 20px;">{{order_time}}</p>
+
+              <h3 style="color:#c9a227;margin:0 0 12px;">Ordered items</h3>
+              <pre style="background:#1a1a1a;padding:16px;border-radius:8px;color:#ccc;font-size:13px;white-space:pre-wrap;margin:0 0 20px;border:1px solid #333;">{{order_items}}</pre>
+
+              <p style="font-size:22px;color:#c9a227;"><strong>Total: {{order_total}}</strong></p>
+
+              <h3 style="color:#c9a227;margin:20px 0 12px;">Product images</h3>
+              <div style="background:#1a1a1a;padding:16px;border-radius:8px;">
+                {{{product_images_html}}}
+              </div>
+
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
