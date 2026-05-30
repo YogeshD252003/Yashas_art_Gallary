@@ -127,12 +127,7 @@ export const CheckoutPage: React.FC = () => {
         quantity: i.quantity,
         image: i.image,
       }));
-      const { orderNumber, emailSent } = await placeOrder(
-        token,
-        orderItems,
-        shippingAddress,
-        user?.email,
-      );
+      const { orderNumber, emailSent } = await placeOrder(token, orderItems, shippingAddress);
       clearCart();
       toast.success(`Order ${orderNumber} confirmed!`);
       if (emailSent) {
